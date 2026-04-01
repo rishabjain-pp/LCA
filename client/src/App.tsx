@@ -1,13 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useDashboardWs } from './hooks/useDashboardWs';
+import { useTwilioDevice } from './hooks/useTwilioDevice';
 import { SessionList } from './components/SessionList';
 import { CallHeader } from './components/CallHeader';
 import { SentimentAnalysis } from './components/SentimentAnalysis';
 import { CallTranscript } from './components/CallTranscript';
 import { AgentAssist } from './components/AgentAssist';
+import { AgentPhone } from './components/AgentPhone';
 
 function App() {
   const { calls, transcripts, connected } = useDashboardWs();
+  const twilioDevice = useTwilioDevice();
   const [selectedCallSid, setSelectedCallSid] = useState<string | null>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [showAgentTranscripts, setShowAgentTranscripts] = useState(true);
@@ -110,6 +113,18 @@ function App() {
         </main>
 
         <aside className="agent-assist-panel">
+          <AgentPhone
+            isReady={twilioDevice.isReady}
+            incomingCall={twilioDevice.incomingCall}
+            activeCall={twilioDevice.activeCall}
+            acceptCall={twilioDevice.acceptCall}
+            rejectCall={twilioDevice.rejectCall}
+            hangUp={twilioDevice.hangUp}
+            toggleMute={twilioDevice.toggleMute}
+            isMuted={twilioDevice.isMuted}
+            callerNumber={twilioDevice.callerNumber}
+            callDuration={twilioDevice.callDuration}
+          />
           <AgentAssist />
         </aside>
       </div>

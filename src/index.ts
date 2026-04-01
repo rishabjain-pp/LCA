@@ -4,6 +4,7 @@ import path from 'path';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { handleTwilioConnection } from './twilioHandler.js';
+import { generateAccessToken } from './twilioToken.js';
 import type { TranscribeSession } from './transcribeSession.js';
 import type { DashboardMessage } from './types/transcribe.js';
 
@@ -28,6 +29,12 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
+// Twilio access token — returns a token for the browser-based agent softphone
+app.get('/api/token', (_req, res) => {
+  const token = generateAccessToken('agent');
+  res.json({ token, identity: 'agent' });
+});
+
 // TwiML endpoint — Twilio calls this to get streaming instructions
 app.post('/twiml', (_req, res) => {
   const wsUrl = process.env.WS_URL || 'wss://localhost/ws';
@@ -39,6 +46,22 @@ app.post('/twiml', (_req, res) => {
   </Start>
   <Say>Call is being recorded and transcribed.</Say>
   <Pause length="3600" />
+</Response>`);
+});
+
+// Voice webhook — Twilio calls this when an incoming call arrives.
+// Starts a media stream (both tracks) and dials the browser-based agent.
+app.post('/voice', (_req, res) => {
+  const wsUrl = process.env.WS_URL || 'wss://localhost/ws';
+  res.set('Content-Type', 'text/xml');
+  res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Start>
+    <Stream url="${wsUrl}" track="both_tracks" />
+  </Start>
+  <Dial>
+    <Client>agent</Client>
+  </Dial>
 </Response>`);
 });
 
