@@ -2,9 +2,17 @@
  * Per-call transcription session manager.
  * Bridges Twilio audio buffers to the TranscribeService and emits
  * typed events: 'transcript', 'ended', 'error'.
+ *
+ * Uses Amazon Comprehend for real AI-powered sentiment analysis on
+ * each finalized transcript segment.
  */
 
 import { EventEmitter } from 'events';
+import {
+  ComprehendClient,
+  DetectSentimentCommand,
+  type LanguageCode as ComprehendLanguageCode,
+} from '@aws-sdk/client-comprehend';
 import { TranscribeService } from './transcribeService.js';
 import type { TranscriptSegment, CallInfo } from './types/transcribe.js';
 
@@ -24,7 +32,9 @@ export class TranscribeSession extends EventEmitter {
   private audioQueue: Buffer[] = [];
   private audioResolve: (() => void) | null = null;
   private audioEnded = false;
+  private audioChunkCount = 0;
   private config: TranscribeSessionConfig;
+  private comprehend: ComprehendClient;
 
   constructor(config: TranscribeSessionConfig) {
     super();
@@ -32,10 +42,12 @@ export class TranscribeSession extends EventEmitter {
     this.callSid = config.callSid;
     this.streamSid = config.streamSid;
     this.startTime = new Date().toISOString();
+    this.comprehend = new ComprehendClient({
+      region: process.env['AWS_REGION'] || 'us-east-1',
+    });
     this.startTranscription();
   }
 
-  /** Returns the current call metadata. */
   get callInfo(): CallInfo {
     return {
       callSid: this.callSid,
@@ -47,38 +59,29 @@ export class TranscribeSession extends EventEmitter {
     };
   }
 
-  /**
-   * Enqueues a PCM16 audio buffer for transcription.
-   * No-ops if the session has already been closed.
-   */
   pushAudio(pcmBuffer: Buffer): void {
     if (this.audioEnded) return;
     this.audioQueue.push(pcmBuffer);
+    this.audioChunkCount++;
+    if (this.audioChunkCount % 100 === 1) {
+      console.log(`[TranscribeSession] Audio chunk #${this.audioChunkCount}, queue: ${this.audioQueue.length}, bytes: ${pcmBuffer.length}`);
+    }
     if (this.audioResolve) {
       this.audioResolve();
       this.audioResolve = null;
     }
   }
 
-  /**
-   * Signals the end of the audio stream and waits briefly
-   * for any remaining transcription results to arrive.
-   */
   async close(): Promise<void> {
     this.audioEnded = true;
     if (this.audioResolve) {
       this.audioResolve();
       this.audioResolve = null;
     }
-    // Give a short delay for remaining results
-    await new Promise<void>(resolve => setTimeout(resolve, 1000));
+    await new Promise<void>(resolve => setTimeout(resolve, 2000));
     this.emit('ended');
   }
 
-  /**
-   * Yields queued audio buffers one at a time, blocking when the
-   * queue is empty until new audio arrives or the session closes.
-   */
   private async *audioGenerator(): AsyncGenerator<Buffer> {
     while (!this.audioEnded) {
       if (this.audioQueue.length > 0) {
@@ -89,13 +92,11 @@ export class TranscribeSession extends EventEmitter {
         });
       }
     }
-    // Drain remaining
     while (this.audioQueue.length > 0) {
       yield this.audioQueue.shift()!;
     }
   }
 
-  /** Spins up the TranscribeService and starts piping audio into it. */
   private startTranscription(): void {
     const mode = (process.env['TRANSCRIBE_MODE'] || 'standard') as 'standard' | 'analytics';
     console.log(`[TranscribeSession] Starting transcription for call ${this.callSid} (mode: ${mode})`);
@@ -116,30 +117,74 @@ export class TranscribeSession extends EventEmitter {
     });
   }
 
-  /** Consumes transcription results and builds the transcript list. */
+  /**
+   * Analyze sentiment using Amazon Comprehend AI.
+   * Returns POSITIVE/NEGATIVE/NEUTRAL/MIXED based on actual NLP analysis.
+   */
+  private async analyzeSentiment(text: string): Promise<{
+    sentiment: TranscriptSegment['sentiment'];
+    issueDetected: boolean;
+  }> {
+    try {
+      const langCode = ((process.env['TRANSCRIBE_LANGUAGE_CODE'] || 'en-US').split('-')[0] || 'en') as ComprehendLanguageCode;
+      const result = await this.comprehend.send(new DetectSentimentCommand({
+        Text: text,
+        LanguageCode: langCode,
+      }));
+      const sentiment = (result.Sentiment as TranscriptSegment['sentiment']) ?? 'NEUTRAL';
+      // Issue detected if sentiment is NEGATIVE or MIXED with high negative score
+      const negScore = result.SentimentScore?.Negative ?? 0;
+      const issueDetected = sentiment === 'NEGATIVE' || (sentiment === 'MIXED' && negScore > 0.4);
+      return { sentiment, issueDetected };
+    } catch (err) {
+      console.error('[TranscribeSession] Comprehend error:', err instanceof Error ? err.message : err);
+      return { sentiment: 'NEUTRAL', issueDetected: false };
+    }
+  }
+
   private async processResults(service: TranscribeService): Promise<void> {
     for await (const result of service.transcribe(this.audioGenerator())) {
+      // For partial results, emit immediately without sentiment (low latency)
+      if (result.isPartial) {
+        const segment: TranscriptSegment = {
+          resultId: result.resultId,
+          channel: result.participantRole === 'AGENT' ? 'AGENT' : 'CALLER',
+          text: result.text,
+          isPartial: true,
+          startTime: result.startTime,
+          endTime: result.endTime,
+          sentiment: undefined,
+          issueDetected: false,
+        };
+        this.emit('transcript', segment);
+        continue;
+      }
+
+      // For finalized results, run Comprehend AI for real sentiment
+      const { sentiment, issueDetected } = result.sentiment
+        ? { sentiment: result.sentiment, issueDetected: result.issuesDetected }
+        : await this.analyzeSentiment(result.text);
+
       const segment: TranscriptSegment = {
         resultId: result.resultId,
         channel: result.participantRole === 'AGENT' ? 'AGENT' : 'CALLER',
         text: result.text,
-        isPartial: result.isPartial,
+        isPartial: false,
         startTime: result.startTime,
         endTime: result.endTime,
-        sentiment: result.sentiment,
-        issueDetected: result.issuesDetected,
+        sentiment,
+        issueDetected,
       };
 
-      // Replace partial results with same ID, or append new
-      if (!result.isPartial) {
-        const existingIdx = this.transcripts.findIndex(
-          t => t.resultId === result.resultId,
-        );
-        if (existingIdx >= 0) {
-          this.transcripts[existingIdx] = segment;
-        } else {
-          this.transcripts.push(segment);
-        }
+      console.log(`[TranscribeSession] Transcript: [${segment.channel}] "${segment.text}" (${String(sentiment)}${issueDetected ? ', ISSUE' : ''})`);
+
+      const existingIdx = this.transcripts.findIndex(
+        t => t.resultId === result.resultId,
+      );
+      if (existingIdx >= 0) {
+        this.transcripts[existingIdx] = segment;
+      } else {
+        this.transcripts.push(segment);
       }
 
       this.emit('transcript', segment);
