@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(ls -la /c/projects/LCA/*.json /c/projects/LCA/.env* /c/projects/LCA/README* /c/projects/LCA/tsconfig* /c/projects/LCA/package*)",
+      "Bash(file:*)",
+      "WebFetch(domain:www.twilio.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:developer.genesys.cloud)",
+      "WebFetch(domain:aws.amazon.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl -sL \"https://api.github.com/repos/aws-samples/amazon-transcribe-live-call-analytics/git/trees/main?recursive=1\")",
+      "Bash(python3 -c \" import json,sys data=json.load\\(sys.stdin\\) for item in data.get\\('tree',[]\\): p=item['path'] if 'audiohook' in p.lower\\(\\) and item['type']=='blob': print\\(p\\) \")",
+      "WebFetch(domain:help.genesys.cloud)",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs"
+    ]
+  }
+}
