@@ -2,9 +2,10 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { createServer } from 'http';
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import { handleTwilioConnection } from './twilioHandler.js';
-import type { LCAClient } from './lcaClient.js';
+import type { TranscribeSession } from './transcribeSession.js';
+import type { DashboardMessage } from './types/transcribe.js';
 
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const WS_URL = process.env.WS_URL || 'wss://localhost/ws';
@@ -12,7 +13,8 @@ const WS_URL = process.env.WS_URL || 'wss://localhost/ws';
 const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ noServer: true });
-const sessions = new Map<string, LCAClient>();
+const dashboardWss = new WebSocketServer({ noServer: true });
+const sessions = new Map<string, TranscribeSession>();
 
 // CORS for development
 app.use((_req, res, next) => {
@@ -40,17 +42,37 @@ app.post('/twiml', (_req, res) => {
 </Response>`);
 });
 
-// Session status API — returns active call sessions
+// Session status API — returns active call sessions with rich metadata
 app.get('/api/sessions', (_req, res) => {
-  const sessionList = Array.from(sessions.entries()).map(([streamSid]) => ({
-    streamSid,
-    status: 'active',
-  }));
+  const sessionList = Array.from(sessions.values()).map(s => s.callInfo);
   res.json({ sessions: sessionList, count: sessionList.length });
+});
+
+// Transcript API — returns transcript segments for a specific call
+app.get('/api/calls/:callSid/transcript', (req, res) => {
+  const session = Array.from(sessions.values()).find(s => s.callSid === req.params.callSid);
+  if (!session) { res.status(404).json({ error: 'Call not found' }); return; }
+  res.json({ callSid: session.callSid, transcripts: session.transcripts });
 });
 
 // Serve React client (production build)
 app.use(express.static(path.join(__dirname, '../client/dist')));
+
+/** Broadcast a dashboard message to all connected dashboard WebSocket clients. */
+function broadcastToDashboard(message: DashboardMessage): void {
+  const payload = JSON.stringify(message);
+  for (const client of dashboardWss.clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(payload);
+    }
+  }
+}
+
+// Dashboard WebSocket — send current calls list on connection
+dashboardWss.on('connection', (ws) => {
+  const calls = Array.from(sessions.values()).map(s => s.callInfo);
+  ws.send(JSON.stringify({ type: 'calls.list', calls }));
+});
 
 // WebSocket upgrade handler
 server.on('upgrade', (request, socket, head) => {
@@ -59,6 +81,10 @@ server.on('upgrade', (request, socket, head) => {
     wss.handleUpgrade(request, socket, head, (ws) => {
       wss.emit('connection', ws, request);
     });
+  } else if (pathname === '/dashboard-ws') {
+    dashboardWss.handleUpgrade(request, socket, head, (ws) => {
+      dashboardWss.emit('connection', ws, request);
+    });
   } else {
     socket.destroy();
   }
@@ -66,11 +92,15 @@ server.on('upgrade', (request, socket, head) => {
 
 // Handle new Twilio WebSocket connections
 wss.on('connection', (ws) => {
-  handleTwilioConnection(ws, sessions);
+  handleTwilioConnection(ws, sessions,
+    (callSid, segment) => broadcastToDashboard({ type: 'transcript', callSid, segment }),
+    (call) => broadcastToDashboard({ type: 'call.started', call }),
+    (callSid) => broadcastToDashboard({ type: 'call.ended', callSid }),
+  );
 });
 
 // Export for testing
-export { app, server, wss, sessions };
+export { app, server, wss, dashboardWss, sessions };
 
 // Only start listening when run directly (not when imported by tests)
 if (process.env.NODE_ENV !== 'test') {
@@ -83,11 +113,12 @@ if (process.env.NODE_ENV !== 'test') {
   // Graceful shutdown
   process.on('SIGTERM', () => {
     console.log('SIGTERM received, shutting down...');
-    for (const [streamSid, client] of sessions) {
-      client.close().catch(() => {});
+    for (const [streamSid, session] of sessions) {
+      session.close().catch(() => {});
       sessions.delete(streamSid);
     }
     wss.close();
+    dashboardWss.close();
     server.close();
   });
 }
