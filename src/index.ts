@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import path from 'path';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { handleTwilioConnection } from './twilioHandler.js';
@@ -12,6 +13,13 @@ const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 const sessions = new Map<string, LCAClient>();
+
+// CORS for development
+app.use((_req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  next();
+});
 
 // Health check
 app.get('/health', (_req, res) => {
@@ -31,6 +39,18 @@ app.post('/twiml', (_req, res) => {
   <Pause length="3600" />
 </Response>`);
 });
+
+// Session status API — returns active call sessions
+app.get('/api/sessions', (_req, res) => {
+  const sessionList = Array.from(sessions.entries()).map(([streamSid]) => ({
+    streamSid,
+    status: 'active',
+  }));
+  res.json({ sessions: sessionList, count: sessionList.length });
+});
+
+// Serve React client (production build)
+app.use(express.static(path.join(__dirname, '../client/dist')));
 
 // WebSocket upgrade handler
 server.on('upgrade', (request, socket, head) => {
