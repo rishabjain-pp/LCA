@@ -13,6 +13,12 @@ function formatDuration(seconds: number): string {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
+function formatPhoneNumber(num: string): string {
+  const match = num.match(/^\+1(\d{3})(\d{3})(\d{4})$/);
+  if (match) return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
+  return num || 'Unknown Caller';
+}
+
 export function SessionList({ calls, selectedCallSid, onSelectCall, durations }: SessionListProps) {
   const activeCalls = calls.filter(c => c.status === 'active');
   const endedCalls = calls.filter(c => c.status === 'ended');
@@ -71,13 +77,13 @@ function CallCard({ call, selected, duration, onClick }: {
 }) {
   return (
     <div
-      className={`call-card ${selected ? 'call-card-selected' : ''}`}
+      className={`call-card ${selected ? 'call-card-selected' : ''} ${call.status === 'active' ? 'call-card-active' : ''}`}
       onClick={onClick}
     >
       <div className="call-card-top">
         <span className="call-card-number">
           {call.status === 'active' && <span className="call-card-phone-icon">{'\uD83D\uDCDE'}</span>}
-          {call.callerNumber || 'Unknown Caller'}
+          {formatPhoneNumber(call.callerNumber)}
         </span>
         <span className={`status-badge status-${call.status}`}>
           {call.status === 'active' ? 'Active' : 'Ended'}

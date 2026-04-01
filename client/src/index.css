@@ -259,6 +259,10 @@ body {
   transform: translateY(-1px);
 }
 
+.call-card-active {
+  border-left-color: var(--select-blue);
+}
+
 .call-card-selected {
   border-left-color: var(--select-blue);
   background: var(--select-blue-bg);
@@ -334,10 +338,7 @@ body {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--card-radius);
-  padding: 16px 18px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  padding: 12px 18px;
   flex-shrink: 0;
   box-shadow: var(--card-shadow);
   transition: box-shadow 0.2s;
@@ -348,6 +349,7 @@ body {
 }
 
 .call-header-empty {
+  display: flex;
   justify-content: center;
   align-items: center;
 }
@@ -357,22 +359,17 @@ body {
   font-size: 13px;
 }
 
-.call-header-info {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.call-header-numbers {
+.call-header-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 18px;
-  font-weight: 700;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .call-header-caller {
   color: var(--caller-color);
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .call-header-arrow {
@@ -382,20 +379,8 @@ body {
 
 .call-header-called {
   color: var(--text-primary);
-}
-
-.call-header-divider {
-  width: 100%;
-  height: 1px;
-  background: var(--card-border);
-  border: none;
-  margin: 0;
-}
-
-.call-header-meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .call-header-duration {
@@ -403,6 +388,7 @@ body {
   font-weight: 600;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
+  font-family: var(--mono-font);
 }
 
 .call-header-sid {
@@ -885,7 +871,7 @@ body {
   align-items: center;
   gap: 12px;
   padding: 12px 0;
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.04), rgba(37, 99, 235, 0.08));
+  background: var(--card-bg);
   border-radius: 8px;
   margin-top: 4px;
 }
@@ -925,13 +911,13 @@ body {
 }
 
 .agent-phone-ringing .agent-phone-caller-number {
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .agent-phone-duration {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
   font-family: var(--mono-font);
   text-align: center;
@@ -970,16 +956,23 @@ body {
   color: #ffffff;
 }
 
+.agent-phone-actions-active {
+  flex-direction: column;
+}
+
 .agent-phone-btn-hangup {
   background: var(--negative);
   color: #ffffff;
-  flex: 2;
+  width: 100%;
+  flex: none;
 }
 
 .agent-phone-btn-mute {
   background: var(--card-bg);
   color: var(--text-primary);
   border: 1px solid var(--card-border);
+  width: 100%;
+  flex: none;
 }
 
 .agent-phone-btn-mute:hover {
@@ -1003,7 +996,7 @@ body {
   align-items: center;
   gap: 10px;
   padding: 12px 0;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.04), rgba(16, 185, 129, 0.10));
+  background: var(--card-bg);
   border-radius: 8px;
   margin-top: 4px;
 }

@@ -26,24 +26,19 @@ export function CallHeader({ call, duration, connected }: CallHeaderProps) {
 
   return (
     <div className="call-header">
-      <div className="call-header-info">
-        <div className="call-header-numbers">
-          <span className="call-header-caller">{callerDisplay}</span>
-          <span className="call-header-arrow">&rarr;</span>
-          <span className="call-header-called">{calledDisplay}</span>
+      <div className="call-header-row">
+        <span className="call-header-caller">{callerDisplay}</span>
+        <span className="call-header-arrow">&rarr;</span>
+        <span className="call-header-called">{calledDisplay}</span>
+        <span className={`status-badge status-${call.status}`}>
+          {call.status === 'active' ? 'Active' : 'Ended'}
+        </span>
+        <span className="call-header-duration">{formatDuration(duration)}</span>
+        <span className="call-header-sid">SID: {call.callSid.slice(0, 12)}...</span>
+        <div className="connection-status">
+          <span className={`connection-dot ${connected ? 'connected' : 'disconnected'}`} />
+          <span className="connection-label">{connected ? 'Connected' : 'Disconnected'}</span>
         </div>
-        <hr className="call-header-divider" />
-        <div className="call-header-meta">
-          <span className={`status-badge status-${call.status}`}>
-            {call.status === 'active' ? 'Active' : 'Ended'}
-          </span>
-          <span className="call-header-duration">{formatDuration(duration)}</span>
-          <span className="call-header-sid">SID: {call.callSid}</span>
-        </div>
-      </div>
-      <div className="connection-status">
-        <span className={`connection-dot ${connected ? 'connected' : 'disconnected'}`} />
-        <span className="connection-label">{connected ? 'Connected' : 'Disconnected'}</span>
       </div>
     </div>
   );

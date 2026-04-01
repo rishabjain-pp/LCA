@@ -90,31 +90,31 @@ function App() {
 
           <div className="transcript-controls">
             <label className="toggle-switch">
+              <span className="toggle-label">Auto Scroll</span>
               <input
                 type="checkbox"
                 checked={autoScroll}
                 onChange={(e) => setAutoScroll(e.target.checked)}
               />
               <span className="toggle-slider" />
-              <span className="toggle-label">Auto Scroll</span>
             </label>
             <label className="toggle-switch">
+              <span className="toggle-label">Show Agent Transcripts?</span>
               <input
                 type="checkbox"
                 checked={showAgentTranscripts}
                 onChange={(e) => setShowAgentTranscripts(e.target.checked)}
               />
               <span className="toggle-slider" />
-              <span className="toggle-label">Show Agent Transcripts?</span>
             </label>
             <label className="toggle-switch">
+              <span className="toggle-label">Enable Translation</span>
               <input
                 type="checkbox"
                 checked={enableTranslation}
                 onChange={(e) => setEnableTranslation(e.target.checked)}
               />
               <span className="toggle-slider" />
-              <span className="toggle-label">Enable Translation</span>
             </label>
           </div>
 
