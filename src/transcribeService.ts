@@ -1,14 +1,15 @@
 /**
- * AWS Transcribe Streaming service wrapper.
+ * AWS Transcribe Call Analytics streaming service wrapper.
  * Accepts an async iterable of PCM16 audio buffers and yields
- * transcription results as they arrive from the service.
+ * transcription results with AI-powered sentiment, issue detection,
+ * and participant role identification.
  */
 
 import {
   TranscribeStreamingClient,
-  StartStreamTranscriptionCommand,
+  StartCallAnalyticsStreamTranscriptionCommand,
   type AudioStream,
-  type LanguageCode,
+  type CallAnalyticsLanguageCode,
 } from '@aws-sdk/client-transcribe-streaming';
 
 export interface TranscribeConfig {
@@ -23,6 +24,9 @@ export interface TranscribeResult {
   isPartial: boolean;
   startTime: number;
   endTime: number;
+  participantRole: 'CUSTOMER' | 'AGENT';
+  sentiment?: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL' | 'MIXED';
+  issuesDetected: boolean;
 }
 
 export class TranscribeService {
@@ -33,15 +37,16 @@ export class TranscribeService {
   }
 
   /**
-   * Starts a streaming transcription session.
+   * Starts a Call Analytics streaming transcription session.
    * Feeds audio chunks from `audioStream` into AWS Transcribe and yields
-   * each transcript result as it becomes available.
+   * each transcript result (with sentiment, issues, and participant role)
+   * as it becomes available.
    */
   async *transcribe(
     audioStream: AsyncIterable<Buffer>,
   ): AsyncGenerator<TranscribeResult> {
-    const command = new StartStreamTranscriptionCommand({
-      LanguageCode: this.config.languageCode as LanguageCode,
+    const command = new StartCallAnalyticsStreamTranscriptionCommand({
+      LanguageCode: this.config.languageCode as CallAnalyticsLanguageCode,
       MediaEncoding: 'pcm',
       MediaSampleRateHertz: this.config.sampleRate,
       AudioStream: this.createAudioStream(audioStream),
@@ -51,23 +56,28 @@ export class TranscribeService {
 
     const response = await this.client.send(command);
 
-    if (!response.TranscriptResultStream) {
+    if (!response.CallAnalyticsTranscriptResultStream) {
       return;
     }
 
-    for await (const event of response.TranscriptResultStream) {
-      if (event.TranscriptEvent?.Transcript?.Results) {
-        for (const result of event.TranscriptEvent.Transcript.Results) {
-          const transcript = result.Alternatives?.[0]?.Transcript;
-          if (transcript && result.ResultId) {
-            yield {
-              resultId: result.ResultId,
-              text: transcript,
-              isPartial: result.IsPartial ?? false,
-              startTime: result.StartTime ?? 0,
-              endTime: result.EndTime ?? 0,
-            };
-          }
+    for await (const event of response.CallAnalyticsTranscriptResultStream) {
+      if (event.CategoryEvent) {
+        console.log('[Transcribe] Categories:', event.CategoryEvent.MatchedCategories);
+      }
+
+      if (event.UtteranceEvent) {
+        const u = event.UtteranceEvent;
+        if (u.Transcript && u.UtteranceId) {
+          yield {
+            resultId: u.UtteranceId,
+            text: u.Transcript,
+            isPartial: u.IsPartial ?? false,
+            startTime: (u.BeginOffsetMillis ?? 0) / 1000,
+            endTime: (u.EndOffsetMillis ?? 0) / 1000,
+            participantRole: u.ParticipantRole === 'AGENT' ? 'AGENT' : 'CUSTOMER',
+            sentiment: u.Sentiment as TranscribeResult['sentiment'],
+            issuesDetected: (u.IssuesDetected?.length ?? 0) > 0,
+          };
         }
       }
     }
@@ -75,11 +85,20 @@ export class TranscribeService {
 
   /**
    * Wraps raw PCM buffers into the AudioStream event shape expected
-   * by the Transcribe Streaming SDK.
+   * by the Transcribe Call Analytics Streaming SDK.
+   * Sends a ConfigurationEvent first, then AudioEvent chunks.
    */
   private async *createAudioStream(
     audioStream: AsyncIterable<Buffer>,
   ): AsyncGenerator<AudioStream> {
+    yield {
+      ConfigurationEvent: {
+        ChannelDefinitions: [
+          { ChannelId: 0, ParticipantRole: 'CUSTOMER' },
+        ],
+      },
+    };
+
     for await (const chunk of audioStream) {
       yield { AudioEvent: { AudioChunk: new Uint8Array(chunk) } };
     }

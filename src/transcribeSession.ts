@@ -114,13 +114,13 @@ export class TranscribeSession extends EventEmitter {
     for await (const result of service.transcribe(this.audioGenerator())) {
       const segment: TranscriptSegment = {
         resultId: result.resultId,
-        channel: 'CALLER', // Twilio mono stream = caller audio
+        channel: result.participantRole === 'AGENT' ? 'AGENT' : 'CALLER',
         text: result.text,
         isPartial: result.isPartial,
         startTime: result.startTime,
         endTime: result.endTime,
-        sentiment: this.detectSentiment(result.text),
-        issueDetected: this.detectIssue(result.text),
+        sentiment: result.sentiment,
+        issueDetected: result.issuesDetected,
       };
 
       // Replace partial results with same ID, or append new
@@ -137,36 +137,5 @@ export class TranscribeSession extends EventEmitter {
 
       this.emit('transcript', segment);
     }
-  }
-
-  /** Simple keyword-based sentiment detection for demo purposes. */
-  private detectSentiment(text: string): TranscriptSegment['sentiment'] {
-    const lower = text.toLowerCase();
-    const negWords = [
-      'frustrated', 'angry', 'unhappy', 'terrible', 'worst',
-      'hate', 'awful', 'horrible', 'complaint', 'unacceptable',
-    ];
-    const posWords = [
-      'thank', 'great', 'excellent', 'perfect', 'wonderful',
-      'appreciate', 'happy', 'love', 'awesome', 'fantastic',
-    ];
-
-    const hasNeg = negWords.some(w => lower.includes(w));
-    const hasPos = posWords.some(w => lower.includes(w));
-
-    if (hasNeg && !hasPos) return 'NEGATIVE';
-    if (hasPos && !hasNeg) return 'POSITIVE';
-    if (hasNeg && hasPos) return 'MIXED';
-    return 'NEUTRAL';
-  }
-
-  /** Simple keyword-based issue detection for demo purposes. */
-  private detectIssue(text: string): boolean {
-    const lower = text.toLowerCase();
-    const issueWords = [
-      'problem', 'issue', 'broken', 'not working', 'error',
-      'failed', 'complaint', 'frustrated', 'angry', 'refund', 'cancel',
-    ];
-    return issueWords.some(w => lower.includes(w));
   }
 }
