@@ -14,6 +14,7 @@ function App() {
   const [selectedCallSid, setSelectedCallSid] = useState<string | null>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [showAgentTranscripts, setShowAgentTranscripts] = useState(true);
+  const [enableTranslation, setEnableTranslation] = useState(false);
   const [durations, setDurations] = useState<Map<string, number>>(new Map());
 
   const callList = useMemo(() => Array.from(calls.values()), [calls]);
@@ -48,6 +49,9 @@ function App() {
   const selectedCall = selectedCallSid ? calls.get(selectedCallSid) ?? null : null;
   const selectedTranscripts = selectedCallSid ? transcripts.get(selectedCallSid) ?? [] : [];
   const selectedDuration = selectedCallSid ? durations.get(selectedCallSid) ?? 0 : 0;
+
+  // Suppress unused variable warning — enableTranslation is UI-only state for now
+  void enableTranslation;
 
   return (
     <div className="app">
@@ -102,6 +106,15 @@ function App() {
               />
               <span className="toggle-slider" />
               <span className="toggle-label">Show Agent Transcripts?</span>
+            </label>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={enableTranslation}
+                onChange={(e) => setEnableTranslation(e.target.checked)}
+              />
+              <span className="toggle-slider" />
+              <span className="toggle-label">Enable Translation</span>
             </label>
           </div>
 

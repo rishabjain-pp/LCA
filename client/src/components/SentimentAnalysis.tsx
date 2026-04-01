@@ -19,7 +19,10 @@ export function SentimentAnalysis({ segments }: SentimentAnalysisProps) {
   return (
     <div className="sentiment-card">
       <div className="sentiment-header">
-        <h3>Call Sentiment Analysis</h3>
+        <div className="sentiment-title-group">
+          <h3>Call Sentiment Analysis</h3>
+          <span className="sentiment-info-link">Info</span>
+        </div>
         <span className="sentiment-info">
           {total} segment{total !== 1 ? 's' : ''} analyzed
         </span>
@@ -37,28 +40,52 @@ export function SentimentAnalysis({ segments }: SentimentAnalysisProps) {
                 className="sentiment-section sentiment-positive"
                 style={{ width: `${getPercent(counts.POSITIVE)}%` }}
                 title={`Positive: ${counts.POSITIVE}`}
-              />
+              >
+                {getPercent(counts.POSITIVE) > 10 && (
+                  <span className="sentiment-percent-label">
+                    {Math.round(getPercent(counts.POSITIVE))}%
+                  </span>
+                )}
+              </div>
             )}
             {counts.NEUTRAL > 0 && (
               <div
                 className="sentiment-section sentiment-neutral"
                 style={{ width: `${getPercent(counts.NEUTRAL)}%` }}
                 title={`Neutral: ${counts.NEUTRAL}`}
-              />
+              >
+                {getPercent(counts.NEUTRAL) > 10 && (
+                  <span className="sentiment-percent-label">
+                    {Math.round(getPercent(counts.NEUTRAL))}%
+                  </span>
+                )}
+              </div>
             )}
             {counts.MIXED > 0 && (
               <div
                 className="sentiment-section sentiment-mixed"
                 style={{ width: `${getPercent(counts.MIXED)}%` }}
                 title={`Mixed: ${counts.MIXED}`}
-              />
+              >
+                {getPercent(counts.MIXED) > 10 && (
+                  <span className="sentiment-percent-label">
+                    {Math.round(getPercent(counts.MIXED))}%
+                  </span>
+                )}
+              </div>
             )}
             {counts.NEGATIVE > 0 && (
               <div
                 className="sentiment-section sentiment-negative"
                 style={{ width: `${getPercent(counts.NEGATIVE)}%` }}
                 title={`Negative: ${counts.NEGATIVE}`}
-              />
+              >
+                {getPercent(counts.NEGATIVE) > 10 && (
+                  <span className="sentiment-percent-label">
+                    {Math.round(getPercent(counts.NEGATIVE))}%
+                  </span>
+                )}
+              </div>
             )}
           </div>
 

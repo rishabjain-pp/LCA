@@ -36,19 +36,19 @@ export function AgentAssist() {
           className={`assist-btn ${activeAction === 'summarize' ? 'assist-btn-active' : ''}`}
           onClick={() => handleAction('summarize')}
         >
-          SUMMARIZE CURRENT CALL
+          {'\uD83D\uDCCB'} SUMMARIZE CURRENT CALL
         </button>
         <button
           className={`assist-btn ${activeAction === 'topic' ? 'assist-btn-active' : ''}`}
           onClick={() => handleAction('topic')}
         >
-          IDENTIFY CURRENT TOPIC
+          {'\uD83D\uDD0D'} IDENTIFY CURRENT TOPIC
         </button>
         <button
-          className={`assist-btn ${activeAction === 'email' ? 'assist-btn-active' : ''}`}
+          className={`assist-btn assist-btn-primary ${activeAction === 'email' ? 'assist-btn-active' : ''}`}
           onClick={() => handleAction('email')}
         >
-          GENERATE EMAIL
+          {'\u2709'} GENERATE EMAIL
         </button>
       </div>
 

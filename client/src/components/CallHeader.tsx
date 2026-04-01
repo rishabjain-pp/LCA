@@ -37,6 +37,7 @@ export function CallHeader({ call, duration, connected }: CallHeaderProps) {
             {call.calledNumber || 'Unknown'}
           </span>
         </div>
+        <hr className="call-header-divider" />
         <div className="call-header-meta">
           <span className={`status-badge status-${call.status}`}>
             {call.status === 'active' ? 'Active' : 'Ended'}

@@ -83,7 +83,7 @@ export function AgentPhone({
               className={`agent-phone-btn agent-phone-btn-mute ${isMuted ? 'agent-phone-btn-mute-active' : ''}`}
               onClick={toggleMute}
             >
-              {isMuted ? 'Unmute' : 'Mute'}
+              {isMuted ? '\uD83D\uDD07 Unmute' : '\uD83D\uDD0A Mute'}
             </button>
             <button className="agent-phone-btn agent-phone-btn-hangup" onClick={hangUp}>
               Hang Up

@@ -76,6 +76,7 @@ function CallCard({ call, selected, duration, onClick }: {
     >
       <div className="call-card-top">
         <span className="call-card-number">
+          {call.status === 'active' && <span className="call-card-phone-icon">{'\uD83D\uDCDE'}</span>}
           {call.callerNumber || 'Unknown Caller'}
         </span>
         <span className={`status-badge status-${call.status}`}>
@@ -83,8 +84,8 @@ function CallCard({ call, selected, duration, onClick }: {
         </span>
       </div>
       <div className="call-card-bottom">
-        <span className="call-card-duration">{formatDuration(duration)}</span>
         <span className="call-card-id">{call.callSid.slice(0, 12)}...</span>
+        <span className="call-card-duration">{formatDuration(duration)}</span>
       </div>
     </div>
   );
