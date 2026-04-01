@@ -856,21 +856,27 @@ body {
 }
 
 .agent-phone-idle {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 12px;
   color: var(--text-muted);
-  font-size: 12px;
-  padding: 16px 8px;
 }
 
-.agent-phone-idle::before {
-  content: '';
-  display: block;
-  width: 40px;
-  height: 40px;
-  margin: 0 auto 10px;
-  border-radius: 50%;
-  background: #f3f4f6;
-  border: 2px dashed #d1d5db;
+.agent-phone-idle-icon {
+  margin-bottom: 4px;
+}
+
+.agent-phone-idle-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.agent-phone-idle-hint {
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .agent-phone-ringing {

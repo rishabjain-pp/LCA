@@ -35,7 +35,7 @@ export function AgentPhone({
   const isOnCall = activeCall !== null;
 
   return (
-    <div className="agent-phone">
+    <div className={`agent-phone ${isRinging ? 'agent-phone-ringing-state' : ''} ${isOnCall ? 'agent-phone-active-state' : ''}`}>
       <div className="agent-phone-header">
         <h3>Agent Phone</h3>
         <span className={`agent-phone-status ${isReady ? 'agent-phone-status-ready' : 'agent-phone-status-offline'}`}>
@@ -46,7 +46,15 @@ export function AgentPhone({
 
       {!isRinging && !isOnCall && (
         <div className="agent-phone-idle">
-          Waiting for calls...
+          <div className="agent-phone-idle-icon">
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+              <circle cx="20" cy="20" r="19" stroke="#d1d5db" strokeWidth="2" strokeDasharray="4 4" />
+              <path d="M15 17c0-1.1.9-2 2-2h6c1.1 0 2 .9 2 2v6c0 1.1-.9 2-2 2h-6a2 2 0 01-2-2v-6z" stroke="#9ca3af" strokeWidth="1.5" fill="none" />
+              <path d="M18 20h4M20 18v4" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </div>
+          <span className="agent-phone-idle-text">Waiting for incoming calls</span>
+          <span className="agent-phone-idle-hint">Calls will ring here automatically</span>
         </div>
       )}
 
@@ -55,7 +63,7 @@ export function AgentPhone({
           <div className="agent-phone-ring-indicator" />
           <div className="agent-phone-caller">
             <span className="agent-phone-caller-label">Incoming Call</span>
-            <span className="agent-phone-caller-number">{callerNumber}</span>
+            <span className="agent-phone-caller-number">{callerNumber || 'Unknown Number'}</span>
           </div>
           <div className="agent-phone-actions">
             <button className="agent-phone-btn agent-phone-btn-accept" onClick={acceptCall}>
@@ -75,15 +83,15 @@ export function AgentPhone({
             <span className="agent-phone-active-label">Active Call</span>
           </div>
           <div className="agent-phone-caller">
-            <span className="agent-phone-caller-number">{callerNumber}</span>
+            <span className="agent-phone-caller-number">{callerNumber || 'Unknown Number'}</span>
             <span className="agent-phone-duration">{formatDuration(callDuration)}</span>
           </div>
-          <div className="agent-phone-actions">
+          <div className="agent-phone-actions agent-phone-actions-active">
             <button
               className={`agent-phone-btn agent-phone-btn-mute ${isMuted ? 'agent-phone-btn-mute-active' : ''}`}
               onClick={toggleMute}
             >
-              {isMuted ? '\uD83D\uDD07 Unmute' : '\uD83D\uDD0A Mute'}
+              {isMuted ? '🔇 Unmute' : '🔊 Mute'}
             </button>
             <button className="agent-phone-btn agent-phone-btn-hangup" onClick={hangUp}>
               Hang Up

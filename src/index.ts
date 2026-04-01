@@ -49,15 +49,23 @@ app.post('/twiml', (_req, res) => {
 </Response>`);
 });
 
+// Parse URL-encoded body from Twilio webhooks
+app.use(express.urlencoded({ extended: false }));
+
 // Voice webhook — Twilio calls this when an incoming call arrives.
-// Starts a media stream (both tracks) and dials the browser-based agent.
-app.post('/voice', (_req, res) => {
+// Passes caller/called numbers as custom parameters to the Stream.
+app.post('/voice', (req, res) => {
   const wsUrl = process.env.WS_URL || 'wss://localhost/ws';
+  const from = (req.body?.From as string) || '';
+  const to = (req.body?.To as string) || '';
   res.set('Content-Type', 'text/xml');
   res.send(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Start>
-    <Stream url="${wsUrl}" track="both_tracks" />
+    <Stream url="${wsUrl}" track="both_tracks">
+      <Parameter name="callerNumber" value="${from}" />
+      <Parameter name="calledNumber" value="${to}" />
+    </Stream>
   </Start>
   <Dial>
     <Client>agent</Client>
