@@ -95,6 +95,7 @@ export class TranscribeService {
       ConfigurationEvent: {
         ChannelDefinitions: [
           { ChannelId: 0, ParticipantRole: 'CUSTOMER' },
+          { ChannelId: 1, ParticipantRole: 'AGENT' },
         ],
       },
     };

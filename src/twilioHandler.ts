@@ -62,6 +62,11 @@ export function handleTwilioConnection(
             onTranscript(callSid!, segment);
           });
 
+          // Prevent unhandled 'error' event from crashing the process
+          session.on('error', (err: unknown) => {
+            console.error(`[Twilio] TranscribeSession error for streamSid=${streamSid}:`, err);
+          });
+
           onCallStarted(session.callInfo);
 
           // Backward compatibility: also forward to LCA if enabled
