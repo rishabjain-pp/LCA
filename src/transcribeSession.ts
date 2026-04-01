@@ -22,6 +22,8 @@ export interface TranscribeSessionConfig {
   callerNumber: string;
   calledNumber: string;
   role: 'CALLER' | 'AGENT';
+  /** If provided, use this stereo stream instead of the internal mono audioGenerator */
+  stereoStream?: AsyncGenerator<Buffer>;
 }
 
 export class TranscribeSession extends EventEmitter {
@@ -109,7 +111,10 @@ export class TranscribeSession extends EventEmitter {
       mode,
     });
 
-    this.processResults(service).catch((err: unknown) => {
+    // Use stereo stream if provided (analytics mode), otherwise mono audioGenerator
+    const audioSource = this.config.stereoStream ?? this.audioGenerator();
+
+    this.processResults(service, audioSource).catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
       const awsMsg = (err as Record<string, unknown>)?.['Message'] ?? '';
       console.error(`[TranscribeSession] Error for call ${this.callSid}: ${msg}`);
@@ -143,9 +148,14 @@ export class TranscribeSession extends EventEmitter {
     }
   }
 
-  private async processResults(service: TranscribeService): Promise<void> {
-    for await (const result of service.transcribe(this.audioGenerator())) {
-      const channel = this.config.role;
+  private async processResults(service: TranscribeService, audioSource: AsyncIterable<Buffer>): Promise<void> {
+    for await (const result of service.transcribe(audioSource)) {
+      // In analytics mode, use the role from AWS (participantRole).
+      // In standard mode, use the role from config.
+      const mode = (process.env['TRANSCRIBE_MODE'] || 'standard');
+      const channel: 'CALLER' | 'AGENT' = mode === 'analytics'
+        ? (result.participantRole === 'AGENT' ? 'AGENT' : 'CALLER')
+        : this.config.role;
 
       // For partial results, emit immediately without sentiment (low latency)
       if (result.isPartial) {
