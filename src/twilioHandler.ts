@@ -8,12 +8,9 @@ import type { TranscriptSegment, CallInfo } from './types/transcribe.js';
 /**
  * Handles a single Twilio Media Streams WebSocket connection.
  *
- * Registers message, close, and error handlers on the Twilio-side WebSocket.
- * Creates a TranscribeSession on the 'start' event, converts mulaw audio to
- * PCM16 16kHz on 'media' events, and pushes it into the transcription pipeline.
- *
- * When ENABLE_LCA_FORWARD is set, also creates an LCAClient for backward
- * compatibility and forwards raw mulaw buffers to the LCA endpoint.
+ * Creates TWO TranscribeSessions per call — one for caller (inbound track)
+ * and one for agent (outbound track) — so both sides get transcribed
+ * with proper CALLER/AGENT labels.
  */
 export function handleTwilioConnection(
   ws: WebSocket,
@@ -24,7 +21,8 @@ export function handleTwilioConnection(
 ): void {
   let streamSid: string | undefined;
   let callSid: string | undefined;
-  let session: TranscribeSession | undefined;
+  let callerSession: TranscribeSession | undefined;
+  let agentSession: TranscribeSession | undefined;
   let lcaClient: LCAClient | undefined;
 
   ws.on('message', (data: WebSocket.Data) => {
@@ -45,29 +43,46 @@ export function handleTwilioConnection(
           const customParams = msg.start.customParameters;
 
           console.log(
-            `[Twilio] Stream started — streamSid: ${streamSid}, callSid: ${callSid}`,
+            `[Twilio] Stream started — streamSid: ${streamSid}, callSid: ${callSid}, tracks: ${msg.start.tracks.join(',')}`,
           );
 
-          // Create TranscribeSession for real-time transcription
-          session = new TranscribeSession({
+          // Create CALLER session (inbound track)
+          callerSession = new TranscribeSession({
             callSid,
             streamSid,
             callerNumber: customParams.callerNumber ?? '',
             calledNumber: customParams.calledNumber ?? '',
+            role: 'CALLER',
           });
 
-          sessions.set(streamSid, session);
+          sessions.set(streamSid, callerSession);
 
-          session.on('transcript', (segment: TranscriptSegment) => {
+          callerSession.on('transcript', (segment: TranscriptSegment) => {
             onTranscript(callSid!, segment);
           });
 
-          // Prevent unhandled 'error' event from crashing the process
-          session.on('error', (err: unknown) => {
-            console.error(`[Twilio] TranscribeSession error for streamSid=${streamSid}:`, err);
+          callerSession.on('error', (err: unknown) => {
+            console.error(`[Twilio] Caller TranscribeSession error for streamSid=${streamSid}:`, err);
           });
 
-          onCallStarted(session.callInfo);
+          // Create AGENT session (outbound track)
+          agentSession = new TranscribeSession({
+            callSid,
+            streamSid: `${streamSid}-agent`,
+            callerNumber: customParams.callerNumber ?? '',
+            calledNumber: customParams.calledNumber ?? '',
+            role: 'AGENT',
+          });
+
+          agentSession.on('transcript', (segment: TranscriptSegment) => {
+            onTranscript(callSid!, segment);
+          });
+
+          agentSession.on('error', (err: unknown) => {
+            console.error(`[Twilio] Agent TranscribeSession error for streamSid=${streamSid}:`, err);
+          });
+
+          onCallStarted(callerSession.callInfo);
 
           // Backward compatibility: also forward to LCA if enabled
           if (process.env.ENABLE_LCA_FORWARD) {
@@ -89,29 +104,24 @@ export function handleTwilioConnection(
         }
 
         case 'media': {
-          if (!session) {
-            break;
-          }
-
           // ─── AUDIO TRANSFORMATION BLOCK ──────────────────────────────────────────────
           // INPUT:  msg.media.payload  — Base64 string
+          //         msg.media.track    — 'inbound' (caller) or 'outbound' (agent)
           //         Audio format: 8000 Hz, 8-bit μ-law (G.711), mono, from Twilio
           //
           // OUTPUT: pcm                — Node.js Buffer (PCM16 16kHz linear)
-          //         Pushed into the TranscribeSession for real-time transcription
-          //
-          // PIPELINE:
-          //   1. Decode Base64 → raw mulaw Buffer
-          //   2. convertTwilioAudio: mulaw 8kHz → PCM16 8kHz → PCM16 16kHz (upsample)
-          //   3. session.pushAudio(pcm) → AWS Transcribe streaming
-          //
-          // BACKWARD COMPAT (ENABLE_LCA_FORWARD):
-          //   Also sends raw mulaw buffer to LCA endpoint via LCAClient.
+          //         Routed to the correct TranscribeSession based on track:
+          //           inbound  → callerSession (labeled CALLER)
+          //           outbound → agentSession  (labeled AGENT)
           // ─────────────────────────────────────────────────────────────────────────────
           const rawBuffer = Buffer.from(msg.media.payload, 'base64');
           const pcm = convertTwilioAudio(rawBuffer);
 
-          session.pushAudio(pcm);
+          if (msg.media.track === 'outbound' && agentSession) {
+            agentSession.pushAudio(pcm);
+          } else if (callerSession) {
+            callerSession.pushAudio(pcm);
+          }
 
           // Backward compatibility: also forward raw mulaw to LCA
           if (lcaClient) {
@@ -124,12 +134,15 @@ export function handleTwilioConnection(
         case 'stop': {
           console.log(`[Twilio] Stream stopped — streamSid: ${msg.streamSid}`);
 
-          if (session) {
-            session.close().catch((err: unknown) => {
-              console.error(
-                `[Twilio] TranscribeSession close failed for streamSid=${streamSid}:`,
-                err,
-              );
+          if (callerSession) {
+            callerSession.close().catch((err: unknown) => {
+              console.error(`[Twilio] Caller session close failed for streamSid=${streamSid}:`, err);
+            });
+          }
+
+          if (agentSession) {
+            agentSession.close().catch((err: unknown) => {
+              console.error(`[Twilio] Agent session close failed for streamSid=${streamSid}:`, err);
             });
           }
 
@@ -139,10 +152,7 @@ export function handleTwilioConnection(
 
           if (lcaClient) {
             lcaClient.close().catch((err: unknown) => {
-              console.error(
-                `[Twilio] LCAClient close failed for streamSid=${streamSid}:`,
-                err,
-              );
+              console.error(`[Twilio] LCAClient close failed for streamSid=${streamSid}:`, err);
             });
           }
 
@@ -153,8 +163,6 @@ export function handleTwilioConnection(
         }
 
         default: {
-          // Exhaustive check not possible here since the msg could have an
-          // unknown event type from future Twilio protocol versions.
           console.log(
             `[Twilio] Unknown event type: ${(msg as Record<string, unknown>).event}`,
           );
@@ -169,29 +177,18 @@ export function handleTwilioConnection(
   ws.on('close', () => {
     console.log(`[Twilio] WebSocket closed — streamSid: ${streamSid ?? 'unknown'}`);
 
-    // Cleanup if Twilio side disconnects without sending a 'stop' event
-    if (session) {
-      session.close().catch((err: unknown) => {
-        console.error(
-          `[Twilio] TranscribeSession close failed during cleanup for streamSid=${streamSid}:`,
-          err,
-        );
-      });
+    if (callerSession) {
+      callerSession.close().catch(() => {});
     }
-
+    if (agentSession) {
+      agentSession.close().catch(() => {});
+    }
     if (callSid) {
       onCallEnded(callSid);
     }
-
     if (lcaClient) {
-      lcaClient.close().catch((err: unknown) => {
-        console.error(
-          `[Twilio] LCAClient close failed during cleanup for streamSid=${streamSid}:`,
-          err,
-        );
-      });
+      lcaClient.close().catch(() => {});
     }
-
     if (streamSid) {
       sessions.delete(streamSid);
     }

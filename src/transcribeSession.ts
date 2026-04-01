@@ -21,6 +21,7 @@ export interface TranscribeSessionConfig {
   streamSid: string;
   callerNumber: string;
   calledNumber: string;
+  role: 'CALLER' | 'AGENT';
 }
 
 export class TranscribeSession extends EventEmitter {
@@ -99,7 +100,7 @@ export class TranscribeSession extends EventEmitter {
 
   private startTranscription(): void {
     const mode = (process.env['TRANSCRIBE_MODE'] || 'standard') as 'standard' | 'analytics';
-    console.log(`[TranscribeSession] Starting transcription for call ${this.callSid} (mode: ${mode})`);
+    console.log(`[TranscribeSession] Starting transcription for call ${this.callSid} (mode: ${mode}, role: ${this.config.role})`);
 
     const service = new TranscribeService({
       region: process.env['AWS_REGION'] || 'us-east-1',
@@ -144,11 +145,13 @@ export class TranscribeSession extends EventEmitter {
 
   private async processResults(service: TranscribeService): Promise<void> {
     for await (const result of service.transcribe(this.audioGenerator())) {
+      const channel = this.config.role;
+
       // For partial results, emit immediately without sentiment (low latency)
       if (result.isPartial) {
         const segment: TranscriptSegment = {
-          resultId: result.resultId,
-          channel: result.participantRole === 'AGENT' ? 'AGENT' : 'CALLER',
+          resultId: `${channel}-${result.resultId}`,
+          channel,
           text: result.text,
           isPartial: true,
           startTime: result.startTime,
@@ -166,8 +169,8 @@ export class TranscribeSession extends EventEmitter {
         : await this.analyzeSentiment(result.text);
 
       const segment: TranscriptSegment = {
-        resultId: result.resultId,
-        channel: result.participantRole === 'AGENT' ? 'AGENT' : 'CALLER',
+        resultId: `${channel}-${result.resultId}`,
+        channel,
         text: result.text,
         isPartial: false,
         startTime: result.startTime,
