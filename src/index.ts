@@ -35,17 +35,19 @@ app.get('/api/token', (_req, res) => {
   res.json({ token, identity: 'agent' });
 });
 
-// TwiML endpoint — Twilio calls this to get streaming instructions
+// TwiML endpoint — Twilio calls this when an incoming call arrives.
+// Starts media stream (both tracks) and dials the browser-based agent.
 app.post('/twiml', (_req, res) => {
   const wsUrl = process.env.WS_URL || 'wss://localhost/ws';
   res.set('Content-Type', 'text/xml');
   res.send(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Start>
-    <Stream url="${wsUrl}" />
+    <Stream url="${wsUrl}" track="both_tracks" />
   </Start>
-  <Say>Call is being recorded and transcribed.</Say>
-  <Pause length="3600" />
+  <Dial>
+    <Client>agent</Client>
+  </Dial>
 </Response>`);
 });
 

@@ -97,14 +97,21 @@ export class TranscribeSession extends EventEmitter {
 
   /** Spins up the TranscribeService and starts piping audio into it. */
   private startTranscription(): void {
+    const mode = (process.env['TRANSCRIBE_MODE'] || 'standard') as 'standard' | 'analytics';
+    console.log(`[TranscribeSession] Starting transcription for call ${this.callSid} (mode: ${mode})`);
+
     const service = new TranscribeService({
       region: process.env['AWS_REGION'] || 'us-east-1',
       languageCode: process.env['TRANSCRIBE_LANGUAGE_CODE'] || 'en-US',
       sampleRate: parseInt(process.env['TRANSCRIBE_SAMPLE_RATE'] || '16000', 10),
+      mode,
     });
 
     this.processResults(service).catch((err: unknown) => {
-      console.error(`[TranscribeSession] Error for call ${this.callSid}:`, err);
+      const msg = err instanceof Error ? err.message : String(err);
+      const awsMsg = (err as Record<string, unknown>)?.['Message'] ?? '';
+      console.error(`[TranscribeSession] Error for call ${this.callSid}: ${msg}`);
+      if (awsMsg) console.error(`[TranscribeSession] AWS detail: ${String(awsMsg)}`);
       this.emit('error', err);
     });
   }

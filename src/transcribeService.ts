@@ -1,14 +1,19 @@
 /**
- * AWS Transcribe Call Analytics streaming service wrapper.
- * Accepts an async iterable of PCM16 audio buffers and yields
- * transcription results with AI-powered sentiment, issue detection,
- * and participant role identification.
+ * AWS Transcribe streaming service wrapper.
+ * Supports two modes:
+ *   - 'standard': Basic transcription (StartStreamTranscriptionCommand) — always works
+ *   - 'analytics': Call Analytics (StartCallAnalyticsStreamTranscriptionCommand) — AI sentiment + issues
+ *
+ * Default: 'standard'. Set TRANSCRIBE_MODE=analytics in .env to use Call Analytics
+ * (requires IAM permission: transcribe:StartCallAnalyticsStreamTranscription).
  */
 
 import {
   TranscribeStreamingClient,
+  StartStreamTranscriptionCommand,
   StartCallAnalyticsStreamTranscriptionCommand,
   type AudioStream,
+  type LanguageCode,
   type CallAnalyticsLanguageCode,
 } from '@aws-sdk/client-transcribe-streaming';
 
@@ -16,6 +21,7 @@ export interface TranscribeConfig {
   region: string;
   languageCode: string;
   sampleRate: number;
+  mode: 'standard' | 'analytics';
 }
 
 export interface TranscribeResult {
@@ -37,19 +43,74 @@ export class TranscribeService {
   }
 
   /**
-   * Starts a Call Analytics streaming transcription session.
-   * Feeds audio chunks from `audioStream` into AWS Transcribe and yields
-   * each transcript result (with sentiment, issues, and participant role)
-   * as it becomes available.
+   * Starts a streaming transcription session.
+   * Delegates to standard or analytics mode based on config.
    */
   async *transcribe(
+    audioStream: AsyncIterable<Buffer>,
+  ): AsyncGenerator<TranscribeResult> {
+    if (this.config.mode === 'analytics') {
+      yield* this.transcribeAnalytics(audioStream);
+    } else {
+      yield* this.transcribeStandard(audioStream);
+    }
+  }
+
+  /**
+   * Standard mode: StartStreamTranscriptionCommand.
+   * Provides transcription only (no AI sentiment or issue detection).
+   */
+  private async *transcribeStandard(
+    audioStream: AsyncIterable<Buffer>,
+  ): AsyncGenerator<TranscribeResult> {
+    const command = new StartStreamTranscriptionCommand({
+      LanguageCode: this.config.languageCode as LanguageCode,
+      MediaEncoding: 'pcm',
+      MediaSampleRateHertz: this.config.sampleRate,
+      AudioStream: this.createStandardAudioStream(audioStream),
+      EnablePartialResultsStabilization: true,
+      PartialResultsStability: 'low',
+    });
+
+    const response = await this.client.send(command);
+
+    if (!response.TranscriptResultStream) {
+      return;
+    }
+
+    for await (const event of response.TranscriptResultStream) {
+      if (event.TranscriptEvent?.Transcript?.Results) {
+        for (const result of event.TranscriptEvent.Transcript.Results) {
+          const transcript = result.Alternatives?.[0]?.Transcript;
+          if (transcript && result.ResultId) {
+            yield {
+              resultId: result.ResultId,
+              text: transcript,
+              isPartial: result.IsPartial ?? false,
+              startTime: result.StartTime ?? 0,
+              endTime: result.EndTime ?? 0,
+              participantRole: 'CUSTOMER',
+              sentiment: undefined,
+              issuesDetected: false,
+            };
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Analytics mode: StartCallAnalyticsStreamTranscriptionCommand.
+   * Provides transcription + AI sentiment + issue detection + participant role.
+   */
+  private async *transcribeAnalytics(
     audioStream: AsyncIterable<Buffer>,
   ): AsyncGenerator<TranscribeResult> {
     const command = new StartCallAnalyticsStreamTranscriptionCommand({
       LanguageCode: this.config.languageCode as CallAnalyticsLanguageCode,
       MediaEncoding: 'pcm',
       MediaSampleRateHertz: this.config.sampleRate,
-      AudioStream: this.createAudioStream(audioStream),
+      AudioStream: this.createAnalyticsAudioStream(audioStream),
       EnablePartialResultsStabilization: true,
       PartialResultsStability: 'low',
     });
@@ -83,12 +144,17 @@ export class TranscribeService {
     }
   }
 
-  /**
-   * Wraps raw PCM buffers into the AudioStream event shape expected
-   * by the Transcribe Call Analytics Streaming SDK.
-   * Sends a ConfigurationEvent first, then AudioEvent chunks.
-   */
-  private async *createAudioStream(
+  /** Standard mode audio stream — just AudioEvent chunks */
+  private async *createStandardAudioStream(
+    audioStream: AsyncIterable<Buffer>,
+  ): AsyncGenerator<AudioStream> {
+    for await (const chunk of audioStream) {
+      yield { AudioEvent: { AudioChunk: new Uint8Array(chunk) } };
+    }
+  }
+
+  /** Analytics mode audio stream — ConfigurationEvent first, then AudioEvent chunks */
+  private async *createAnalyticsAudioStream(
     audioStream: AsyncIterable<Buffer>,
   ): AsyncGenerator<AudioStream> {
     yield {
