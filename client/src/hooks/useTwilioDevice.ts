@@ -29,7 +29,8 @@ export function useTwilioDevice(): UseTwilioDeviceReturn {
 
     async function init() {
       try {
-        const res = await fetch('/api/token');
+        const apiBase = import.meta.env.VITE_API_BASE || '';
+        const res = await fetch(`${apiBase}/api/token`);
         const data: { token: string } = await res.json();
 
         if (destroyed) return;

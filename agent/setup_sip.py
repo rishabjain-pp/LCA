@@ -23,29 +23,15 @@ async def setup():
 
     lk = api.LiveKitAPI(livekit_url, api_key, api_secret)
 
-    # First, clean up any existing trunks/rules from previous runs
-    print("[SIP Setup] Cleaning up existing SIP config...")
+    # List existing resources (DO NOT DELETE — other projects may use them)
+    print("[SIP Setup] Checking existing SIP config...")
     try:
         existing_rules = await lk.sip.list_dispatch_rule(api.ListSIPDispatchRuleRequest())
-        for r in existing_rules.items:
-            await lk.sip.delete_dispatch_rule(
-                api.DeleteSIPDispatchRuleRequest(sip_dispatch_rule_id=r.sip_dispatch_rule_id)
-            )
-            print(f"  Deleted rule: {r.sip_dispatch_rule_id}")
+        print(f"  Existing dispatch rules: {len(existing_rules.items)}")
     except Exception:
         pass
 
-    try:
-        existing_trunks = await lk.sip.list_sip_inbound_trunk(api.ListSIPInboundTrunkRequest())
-        for t in existing_trunks.items:
-            await lk.sip.delete_sip_trunk(
-                api.DeleteSIPTrunkRequest(sip_trunk_id=t.sip_trunk_id)
-            )
-            print(f"  Deleted trunk: {t.sip_trunk_id}")
-    except Exception:
-        pass
-
-    print("[SIP Setup] Creating inbound SIP trunk...")
+    print("[SIP Setup] Creating NEW inbound SIP trunk (existing ones untouched)...")
     trunk = await lk.sip.create_inbound_trunk(
         api.CreateSIPInboundTrunkRequest(
             trunk=api.SIPInboundTrunkInfo(

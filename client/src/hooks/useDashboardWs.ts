@@ -15,8 +15,11 @@ export function useDashboardWs(): UseDashboardWsReturn {
   const reconnectTimeoutRef = useRef<number | null>(null);
 
   const connect = useCallback(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/dashboard-ws`);
+    const wsBase = import.meta.env.VITE_WS_BASE;
+    const wsUrl = wsBase
+      ? `${wsBase}/dashboard-ws`
+      : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/dashboard-ws`;
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => setConnected(true);

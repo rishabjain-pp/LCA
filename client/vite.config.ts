@@ -6,10 +6,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': 'http://localhost:8080',
-      '/health': 'http://localhost:8080',
+      '/api': 'http://livekit.sandbox.digitelco-dev.com:8080',
+      '/health': 'http://livekit.sandbox.digitelco-dev.com:8080',
       '/dashboard-ws': {
-        target: 'ws://localhost:8080',
+        target: 'ws://livekit.sandbox.digitelco-dev.com:8080',
         ws: true,
       },
     },
