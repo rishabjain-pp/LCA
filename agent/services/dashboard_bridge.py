@@ -9,11 +9,11 @@ to the /api/agent-transcript endpoint.
 import logging
 import time
 import uuid
+import asyncio
 import aiohttp
 import boto3
 
 from livekit.agents import AgentSession
-from livekit.agents.voice import AgentSessionEventTypes
 
 logger = logging.getLogger("lca-agent.bridge")
 
@@ -31,7 +31,7 @@ class DashboardBridge:
         self._session_start = time.time()
 
         # Notify dashboard of call start
-        self._post_event({
+        self._fire_event({
             "type": "call.started",
             "call": {
                 "callSid": room_name,
@@ -43,85 +43,108 @@ class DashboardBridge:
             },
         })
 
-        # Listen for user speech (CALLER)
-        session.on(
-            AgentSessionEventTypes.UserInputTranscribed,
-            lambda ev: self._on_user_transcript(ev),
-        )
+        # Listen for user speech (CALLER) — fires when user's speech is transcribed
+        @session.on("user_input_transcribed")
+        def on_user_transcript(ev):
+            self._on_user_transcript(ev)
 
-        # Listen for agent speech (AGENT)
-        session.on(
-            AgentSessionEventTypes.AgentSpeechTranscriptionCompleted,
-            lambda ev: self._on_agent_transcript(ev),
-        )
+        # Listen for conversation items (includes agent speech)
+        @session.on("conversation_item_added")
+        def on_conversation_item(ev):
+            self._on_conversation_item(ev)
 
         # Listen for session close
-        session.on(
-            AgentSessionEventTypes.Close,
-            lambda ev: self._on_close(ev),
-        )
+        @session.on("close")
+        def on_close(ev):
+            self._on_close()
 
         logger.info(f"Dashboard bridge attached for room: {room_name}")
 
     def _on_user_transcript(self, ev) -> None:
         """Handle user (caller) speech transcription."""
-        if not ev.transcript or not ev.transcript.strip():
+        transcript = getattr(ev, "transcript", "") or ""
+        if not transcript.strip():
             return
 
+        is_final = getattr(ev, "is_final", True)
         elapsed = time.time() - self._session_start
-        sentiment = self._analyze_sentiment(ev.transcript)
+
+        # Only run sentiment on final transcripts
+        if is_final:
+            sentiment_result = self._analyze_sentiment(transcript)
+        else:
+            sentiment_result = {"sentiment": None, "issue": False}
 
         segment = {
             "resultId": f"CALLER-{uuid.uuid4().hex[:12]}",
             "channel": "CALLER",
-            "text": ev.transcript,
-            "isPartial": not getattr(ev, "is_final", True),
-            "startTime": round(elapsed - 2, 1),
+            "text": transcript,
+            "isPartial": not is_final,
+            "startTime": round(max(elapsed - 3, 0), 1),
             "endTime": round(elapsed, 1),
-            "sentiment": sentiment["sentiment"],
-            "issueDetected": sentiment["issue"],
+            "sentiment": sentiment_result["sentiment"],
+            "issueDetected": sentiment_result["issue"],
         }
 
-        logger.info(f"[CALLER] {ev.transcript} ({sentiment['sentiment']})")
+        if is_final:
+            logger.info(f"[CALLER] {transcript} ({sentiment_result['sentiment']})")
 
-        self._post_event({
+        self._fire_event({
             "type": "transcript",
             "callSid": self._room_name,
             "segment": segment,
         })
 
-    def _on_agent_transcript(self, ev) -> None:
-        """Handle agent speech transcription."""
-        text = getattr(ev, "transcript", "") or ""
+    def _on_conversation_item(self, ev) -> None:
+        """Handle conversation items — extract agent speech."""
+        item = getattr(ev, "item", ev)
+        role = getattr(item, "role", None)
+
+        # Only process assistant (agent) messages
+        if role != "assistant":
+            return
+
+        # Extract text content
+        text = ""
+        content = getattr(item, "content", [])
+        if isinstance(content, list):
+            for c in content:
+                t = getattr(c, "text", "") or ""
+                if t:
+                    text = t
+                    break
+        elif isinstance(content, str):
+            text = content
+
         if not text.strip():
             return
 
         elapsed = time.time() - self._session_start
-        sentiment = self._analyze_sentiment(text)
+        sentiment_result = self._analyze_sentiment(text)
 
         segment = {
             "resultId": f"AGENT-{uuid.uuid4().hex[:12]}",
             "channel": "AGENT",
             "text": text,
             "isPartial": False,
-            "startTime": round(elapsed - 2, 1),
+            "startTime": round(max(elapsed - 3, 0), 1),
             "endTime": round(elapsed, 1),
-            "sentiment": sentiment["sentiment"],
-            "issueDetected": sentiment["issue"],
+            "sentiment": sentiment_result["sentiment"],
+            "issueDetected": sentiment_result["issue"],
         }
 
-        logger.info(f"[AGENT] {text} ({sentiment['sentiment']})")
+        logger.info(f"[AGENT] {text} ({sentiment_result['sentiment']})")
 
-        self._post_event({
+        self._fire_event({
             "type": "transcript",
             "callSid": self._room_name,
             "segment": segment,
         })
 
-    def _on_close(self, ev) -> None:
+    def _on_close(self) -> None:
         """Handle session close."""
         logger.info(f"Session closed for room: {self._room_name}")
-        self._post_event({
+        self._fire_event({
             "type": "call.ended",
             "callSid": self._room_name,
         })
@@ -141,18 +164,17 @@ class DashboardBridge:
             logger.error(f"Comprehend error: {e}")
             return {"sentiment": "NEUTRAL", "issue": False}
 
-    def _post_event(self, payload: dict) -> None:
+    def _fire_event(self, payload: dict) -> None:
         """POST an event to the LCA relay server (fire-and-forget)."""
-        import asyncio
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.ensure_future(self._async_post(payload))
-            else:
-                loop.run_until_complete(self._async_post(payload))
+            loop = asyncio.get_running_loop()
+            asyncio.ensure_future(self._async_post(payload))
         except RuntimeError:
-            # No event loop — skip
-            logger.warning("No event loop available for dashboard POST")
+            # No running event loop — create one
+            try:
+                asyncio.run(self._async_post(payload))
+            except Exception:
+                logger.warning("Could not send dashboard event")
 
     async def _async_post(self, payload: dict) -> None:
         """Async POST to relay server."""
@@ -166,4 +188,4 @@ class DashboardBridge:
                     if resp.status != 200:
                         logger.warning(f"Dashboard POST failed: {resp.status}")
         except Exception as e:
-            logger.warning(f"Dashboard POST error: {e}")
+            logger.debug(f"Dashboard POST error: {e}")

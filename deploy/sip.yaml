@@ -2,11 +2,14 @@ api_key: devkey
 api_secret: secret
 ws_url: ws://livekit:7880
 
+redis:
+  address: redis:6379
+
 sip_port: 5060
 
-rtp_port_range:
-  start: 10000
-  end: 10050
+rtp_port:
+  port_range_start: 10000
+  port_range_end: 10050
 
 logging:
   level: info

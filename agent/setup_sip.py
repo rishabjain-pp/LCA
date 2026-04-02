@@ -2,7 +2,7 @@
 SIP Trunk + Dispatch Rule Setup Script
 
 Run once to configure LiveKit SIP server with:
-1. An inbound SIP trunk (accepts calls from Twilio)
+1. An inbound SIP trunk (accepts calls from Twilio/MicroSIP)
 2. A dispatch rule (routes calls to individual rooms, triggering the agent)
 
 Usage: python setup_sip.py
@@ -23,24 +23,43 @@ async def setup():
 
     lk = api.LiveKitAPI(livekit_url, api_key, api_secret)
 
-    print("[SIP Setup] Creating inbound SIP trunk...")
+    # First, clean up any existing trunks/rules from previous runs
+    print("[SIP Setup] Cleaning up existing SIP config...")
+    try:
+        existing_rules = await lk.sip.list_dispatch_rule(api.ListSIPDispatchRuleRequest())
+        for r in existing_rules.items:
+            await lk.sip.delete_dispatch_rule(
+                api.DeleteSIPDispatchRuleRequest(sip_dispatch_rule_id=r.sip_dispatch_rule_id)
+            )
+            print(f"  Deleted rule: {r.sip_dispatch_rule_id}")
+    except Exception:
+        pass
 
-    trunk = await lk.sip.create_sip_inbound_trunk(
+    try:
+        existing_trunks = await lk.sip.list_sip_inbound_trunk(api.ListSIPInboundTrunkRequest())
+        for t in existing_trunks.items:
+            await lk.sip.delete_sip_trunk(
+                api.DeleteSIPTrunkRequest(sip_trunk_id=t.sip_trunk_id)
+            )
+            print(f"  Deleted trunk: {t.sip_trunk_id}")
+    except Exception:
+        pass
+
+    print("[SIP Setup] Creating inbound SIP trunk...")
+    trunk = await lk.sip.create_inbound_trunk(
         api.CreateSIPInboundTrunkRequest(
             trunk=api.SIPInboundTrunkInfo(
                 name="LCA Demo Trunk",
                 numbers=[],
-                allowed_addresses=[],
+                allowed_addresses=["0.0.0.0/0"],
             )
         )
     )
-
     trunk_id = trunk.sip_trunk_id
     print(f"[SIP Setup] Trunk created: {trunk_id}")
 
-    print("[SIP Setup] Creating dispatch rule...")
-
-    rule = await lk.sip.create_sip_dispatch_rule(
+    print("[SIP Setup] Creating dispatch rule with agent_name='lca-agent'...")
+    rule = await lk.sip.create_dispatch_rule(
         api.CreateSIPDispatchRuleRequest(
             trunk_ids=[trunk_id],
             rule=api.SIPDispatchRule(
@@ -48,20 +67,21 @@ async def setup():
                     room_prefix="call-",
                 )
             ),
+            room_config=api.RoomConfiguration(
+                agents=[
+                    api.RoomAgentDispatch(agent_name="lca-agent"),
+                ],
+            ),
         )
     )
-
     rule_id = rule.sip_dispatch_rule_id
     print(f"[SIP Setup] Dispatch rule created: {rule_id}")
 
-    print("\n[SIP Setup] Done! Configuration:")
+    print("\n[SIP Setup] Done!")
     print(f"  Trunk ID: {trunk_id}")
     print(f"  Dispatch Rule ID: {rule_id}")
+    print(f"  Agent Name: lca-agent")
     print(f"  Room prefix: call-")
-    print("\nNext steps:")
-    print("  1. Configure Twilio SIP trunk → point to your LiveKit SIP server (port 5060)")
-    print("  2. Start the agent: cd agent && python main.py start")
-    print("  3. Call your Twilio number")
 
     await lk.aclose()
 

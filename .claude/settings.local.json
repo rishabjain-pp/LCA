@@ -46,7 +46,10 @@
       "WebFetch(domain:docs.livekit.io)",
       "WebFetch(domain:livekit.com)",
       "Bash(grep -E \"\\\\.py$|\\\\.md$|\\\\.txt$|\\\\.env\")",
-      "Bash(npm search:*)"
+      "Bash(npm search:*)",
+      "Bash(python -m venv venv)",
+      "Bash(/c/projects/LCA/agent/venv/Scripts/python:*)",
+      "Bash(docker compose:*)"
     ]
   }
 }

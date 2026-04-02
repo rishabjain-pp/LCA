@@ -1,33 +1,64 @@
+version: "3.9"
+
 services:
   redis:
     image: redis:7-alpine
+    container_name: lca-redis
+    volumes:
+      - redis_data:/data
     ports:
       - "6379:6379"
+    networks:
+      - livekit-network
     restart: unless-stopped
 
   livekit:
     image: livekit/livekit-server:latest
-    command: --config /etc/livekit.yaml --node-ip 127.0.0.1
+    container_name: lca-livekit
+    command: --dev --config /config/livekit.yaml --node-ip=host.docker.internal
     ports:
-      - "7880:7880"     # WebSocket
-      - "7881:7881"     # gRPC
-      - "7882:7882/udp" # Media
-    volumes:
-      - ./deploy/livekit.yaml:/etc/livekit.yaml
+      - "7880:7880"
+      - "7881:7881/tcp"
+      - "7882-7900:7882-7900/udp"
     depends_on:
       - redis
+    networks:
+      - livekit-network
     restart: unless-stopped
+    volumes:
+      - ./deploy/livekit.yaml:/config/livekit.yaml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   sip:
     image: livekit/sip:latest
-    command: --config /etc/sip.yaml
-    ports:
-      - "5060:5060/udp"          # SIP Signaling
-      - "5060:5060/tcp"
-      - "10000-10050:10000-10050/udp"  # RTP Media
-    volumes:
-      - ./deploy/sip.yaml:/etc/sip.yaml
+    container_name: lca-sip
     depends_on:
-      - livekit
       - redis
+      - livekit
+    ports:
+      - "15060:5060/udp"
+      - "15060:5060/tcp"
+      - "10000-10100:10000-10100/udp"
+    environment:
+      SIP_CONFIG_BODY: |
+        api_key: 'devkey'
+        api_secret: 'secret'
+        ws_url: 'ws://livekit:7880'
+        redis:
+          address: 'redis:6379'
+        sip_port: 5060
+        rtp_port: 10000-10100
+        use_external_ip: false
+        logging:
+          level: debug
+    networks:
+      - livekit-network
     restart: unless-stopped
+
+networks:
+  livekit-network:
+    driver: bridge
+
+volumes:
+  redis_data:

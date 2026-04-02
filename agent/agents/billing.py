@@ -6,6 +6,7 @@ charges, refunds, and payment plans.
 """
 
 import logging
+import time
 from livekit.agents import Agent, llm
 
 logger = logging.getLogger("lca-agent.billing")
@@ -34,21 +35,16 @@ If the caller asks about something outside of billing (like technical support,
 scheduling, or general inquiries), use the route_to_orchestrator tool to transfer them back.
 
 Be professional, empathetic, and concise.""",
-            tools=[self._lookup_account, self._process_refund, self._route_to_orchestrator],
         )
 
     @llm.function_tool()
-    async def _lookup_account(
-        self,
-        identifier: str,
-    ) -> dict:
+    async def lookup_account(self, identifier: str) -> dict:
         """Look up a customer account by account number or phone number.
 
         Args:
             identifier: Account number or phone number
         """
         logger.info(f"Looking up account: {identifier}")
-        # Simulated account lookup for demo
         return {
             "accountNumber": identifier,
             "plan": "Premium",
@@ -59,19 +55,14 @@ Be professional, empathetic, and concise.""",
         }
 
     @llm.function_tool()
-    async def _process_refund(
-        self,
-        amount: str,
-        reason: str,
-    ) -> dict:
+    async def process_refund(self, amount: str, reason: str) -> dict:
         """Process a refund for the customer.
 
         Args:
             amount: Refund amount (e.g. "$49.99")
             reason: Reason for the refund
         """
-        import time
-        logger.info(f"Processing refund: ${amount} — {reason}")
+        logger.info(f"Processing refund: ${amount} - {reason}")
         return {
             "status": "approved",
             "refundId": f"RF-{int(time.time())}",
@@ -80,10 +71,7 @@ Be professional, empathetic, and concise.""",
         }
 
     @llm.function_tool()
-    async def _route_to_orchestrator(
-        self,
-        reason: str,
-    ) -> Agent:
+    async def route_to_orchestrator(self, reason: str) -> Agent:
         """Transfer the caller back to the main menu for non-billing questions.
 
         Args:

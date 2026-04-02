@@ -3,7 +3,7 @@ Orchestrator Agent — Entry point for all incoming calls.
 
 Greets the caller and routes to the appropriate specialist agent
 based on the caller's intent. Currently supports:
-- Billing queries → BillingAgent
+- Billing queries -> BillingAgent
 """
 
 import logging
@@ -20,18 +20,14 @@ class OrchestratorAgent(Agent):
 Your role is to greet callers warmly and understand what they need help with.
 
 When the caller mentions anything related to billing, payments, invoices, account balance,
-charges, or refunds — use the route_to_billing tool to transfer them to our billing specialist.
+charges, or refunds - use the route_to_billing tool to transfer them to our billing specialist.
 
 For all other inquiries, do your best to help directly. Be concise and professional.
 Always ask for the caller's name if they haven't provided it.""",
-            tools=[self._route_to_billing],
         )
 
     @llm.function_tool()
-    async def _route_to_billing(
-        self,
-        reason: str,
-    ) -> Agent:
+    async def route_to_billing(self, reason: str) -> Agent:
         """Transfer the caller to the billing specialist when they have billing,
         payment, invoice, account balance, charges, or refund questions.
 
@@ -44,7 +40,6 @@ Always ask for the caller's name if they haven't provided it.""",
 
     async def on_enter(self) -> None:
         """Called when this agent becomes active."""
-        # Check if returning from a specialist
         handoff = getattr(self, "_handoff_reason", None)
         if handoff:
             self.session.generate_reply(
