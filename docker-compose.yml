@@ -1,0 +1,33 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  livekit:
+    image: livekit/livekit-server:latest
+    command: --config /etc/livekit.yaml --node-ip 127.0.0.1
+    ports:
+      - "7880:7880"     # WebSocket
+      - "7881:7881"     # gRPC
+      - "7882:7882/udp" # Media
+    volumes:
+      - ./deploy/livekit.yaml:/etc/livekit.yaml
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  sip:
+    image: livekit/sip:latest
+    command: --config /etc/sip.yaml
+    ports:
+      - "5060:5060/udp"          # SIP Signaling
+      - "5060:5060/tcp"
+      - "10000-10050:10000-10050/udp"  # RTP Media
+    volumes:
+      - ./deploy/sip.yaml:/etc/sip.yaml
+    depends_on:
+      - livekit
+      - redis
+    restart: unless-stopped
