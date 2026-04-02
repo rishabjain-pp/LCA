@@ -49,7 +49,8 @@
       "Bash(npm search:*)",
       "Bash(python -m venv venv)",
       "Bash(/c/projects/LCA/agent/venv/Scripts/python:*)",
-      "Bash(docker compose:*)"
+      "Bash(docker compose:*)",
+      "Bash(xargs ls:*)"
     ]
   }
 }

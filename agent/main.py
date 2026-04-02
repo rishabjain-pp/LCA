@@ -68,7 +68,8 @@ async def entrypoint(ctx: JobContext) -> None:
     )
 
     # Hook up transcript events to the dashboard bridge
-    bridge.attach(session, room_name=ctx.room.name)
+    # Pass the room for room-level transcription_received (streaming partials)
+    bridge.attach(session, room_name=ctx.room.name, room=ctx.room)
 
     # Start the session
     await session.start(
