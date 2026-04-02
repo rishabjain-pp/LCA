@@ -41,7 +41,12 @@
       "WebFetch(domain:contribution.usercontent.google.com)",
       "Bash(aws sts get-caller-identity:*)",
       "Bash(aws transcribe:*)",
-      "Bash(aws configure get region:*)"
+      "Bash(aws configure get region:*)",
+      "Bash(grep -E \"\\\\.\\(json|ts|yaml|yml|md\\)$\")",
+      "WebFetch(domain:docs.livekit.io)",
+      "WebFetch(domain:livekit.com)",
+      "Bash(grep -E \"\\\\.py$|\\\\.md$|\\\\.txt$|\\\\.env\")",
+      "Bash(npm search:*)"
     ]
   }
 }

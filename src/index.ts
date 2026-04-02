@@ -49,7 +49,8 @@ app.post('/twiml', (_req, res) => {
 </Response>`);
 });
 
-// Parse URL-encoded body from Twilio webhooks
+// Parse request bodies
+app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Voice webhook — Twilio calls this when an incoming call arrives.
@@ -84,6 +85,18 @@ app.get('/api/calls/:callSid/transcript', (req, res) => {
   const session = Array.from(sessions.values()).find(s => s.callSid === req.params.callSid);
   if (!session) { res.status(404).json({ error: 'Call not found' }); return; }
   res.json({ callSid: session.callSid, transcripts: session.transcripts });
+});
+
+// Agent transcript API — receives transcript events from the Python LiveKit agent
+// and broadcasts them to the dashboard via WebSocket
+app.post('/api/agent-transcript', (req, res) => {
+  const msg = req.body as DashboardMessage;
+  if (!msg || !msg.type) {
+    res.status(400).json({ error: 'Invalid message' });
+    return;
+  }
+  broadcastToDashboard(msg);
+  res.json({ ok: true });
 });
 
 // Serve React client (production build)
