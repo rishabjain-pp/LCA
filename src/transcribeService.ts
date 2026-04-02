@@ -63,6 +63,7 @@ export class TranscribeService {
   private async *transcribeStandard(
     audioStream: AsyncIterable<Buffer>,
   ): AsyncGenerator<TranscribeResult> {
+    console.log('[Transcribe] Starting standard stream...');
     const command = new StartStreamTranscriptionCommand({
       LanguageCode: this.config.languageCode as LanguageCode,
       MediaEncoding: 'pcm',
@@ -73,11 +74,14 @@ export class TranscribeService {
     });
 
     const response = await this.client.send(command);
+    console.log('[Transcribe] Standard stream connected, session:', response.SessionId);
 
     if (!response.TranscriptResultStream) {
+      console.error('[Transcribe] No TranscriptResultStream in response');
       return;
     }
 
+    console.log('[Transcribe] Listening for events...');
     for await (const event of response.TranscriptResultStream) {
       if (event.TranscriptEvent?.Transcript?.Results) {
         for (const result of event.TranscriptEvent.Transcript.Results) {
@@ -106,6 +110,7 @@ export class TranscribeService {
   private async *transcribeAnalytics(
     audioStream: AsyncIterable<Buffer>,
   ): AsyncGenerator<TranscribeResult> {
+    console.log('[Transcribe] Starting Call Analytics stream...');
     const command = new StartCallAnalyticsStreamTranscriptionCommand({
       LanguageCode: this.config.languageCode as CallAnalyticsLanguageCode,
       MediaEncoding: 'pcm',
@@ -116,11 +121,14 @@ export class TranscribeService {
     });
 
     const response = await this.client.send(command);
+    console.log('[Transcribe] Call Analytics stream connected, session:', response.SessionId);
 
     if (!response.CallAnalyticsTranscriptResultStream) {
+      console.error('[Transcribe] No CallAnalyticsTranscriptResultStream in response');
       return;
     }
 
+    console.log('[Transcribe] Listening for events...');
     for await (const event of response.CallAnalyticsTranscriptResultStream) {
       if (event.CategoryEvent) {
         console.log('[Transcribe] Categories:', event.CategoryEvent.MatchedCategories);

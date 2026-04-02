@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/components/agentassist.tsx","./src/components/agentphone.tsx","./src/components/callheader.tsx","./src/components/calltranscript.tsx","./src/components/sentimentanalysis.tsx","./src/components/sessionlist.tsx","./src/hooks/usedashboardws.ts","./src/hooks/usetwiliodevice.ts"],"version":"5.9.3"}
