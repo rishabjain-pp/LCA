@@ -22,64 +22,49 @@ export function useTwilioDevice(): UseTwilioDeviceReturn {
   const [callerNumber, setCallerNumber] = useState('');
   const [callDuration, setCallDuration] = useState(0);
   const deviceRef = useRef<Device | null>(null);
-  const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const durationIntervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     let destroyed = false;
 
     async function init() {
       try {
-        const apiBase = import.meta.env.VITE_API_BASE || '';
+        const apiBase = (import.meta as { env?: { VITE_API_BASE?: string } }).env?.VITE_API_BASE || '';
         const res = await fetch(`${apiBase}/api/token`);
-        const data: { token: string } = await res.json();
+        const { token } = await res.json() as { token: string };
 
         if (destroyed) return;
 
-        const device = new Device(data.token, {
+        const device = new Device(token, {
           codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
-          logLevel: 'warn',
+          logLevel: 1,
         });
 
-        device.on('registered', () => {
-          if (!destroyed) setIsReady(true);
-        });
-
-        device.on('unregistered', () => {
-          if (!destroyed) setIsReady(false);
-        });
+        device.on('registered', () => setIsReady(true));
+        device.on('unregistered', () => setIsReady(false));
 
         device.on('incoming', (call: Call) => {
-          if (destroyed) return;
-
           setIncomingCall(call);
-          setCallerNumber(call.parameters['From'] || 'Unknown');
+          setCallerNumber(call.parameters.From || 'Unknown');
 
           call.on('accept', () => {
-            if (destroyed) return;
             setActiveCall(call);
             setIncomingCall(null);
             const start = Date.now();
-            durationIntervalRef.current = setInterval(() => {
+            durationIntervalRef.current = window.setInterval(() => {
               setCallDuration(Math.floor((Date.now() - start) / 1000));
             }, 1000);
           });
 
           call.on('disconnect', () => {
-            if (destroyed) return;
             setActiveCall(null);
             setIncomingCall(null);
             setCallDuration(0);
             setIsMuted(false);
-            if (durationIntervalRef.current) {
-              clearInterval(durationIntervalRef.current);
-              durationIntervalRef.current = null;
-            }
+            if (durationIntervalRef.current) clearInterval(durationIntervalRef.current);
           });
 
-          call.on('cancel', () => {
-            if (destroyed) return;
-            setIncomingCall(null);
-          });
+          call.on('cancel', () => setIncomingCall(null));
         });
 
         await device.register();
@@ -89,7 +74,7 @@ export function useTwilioDevice(): UseTwilioDeviceReturn {
       }
     }
 
-    init();
+    void init();
 
     return () => {
       destroyed = true;
@@ -98,25 +83,14 @@ export function useTwilioDevice(): UseTwilioDeviceReturn {
     };
   }, []);
 
-  const acceptCall = useCallback(() => {
-    incomingCall?.accept();
-  }, [incomingCall]);
-
-  const rejectCall = useCallback(() => {
-    incomingCall?.reject();
-    setIncomingCall(null);
-  }, [incomingCall]);
-
+  const acceptCall = useCallback(() => { incomingCall?.accept(); }, [incomingCall]);
+  const rejectCall = useCallback(() => { incomingCall?.reject(); setIncomingCall(null); }, [incomingCall]);
   const hangUp = useCallback(() => {
     activeCall?.disconnect();
     setActiveCall(null);
     setCallDuration(0);
-    if (durationIntervalRef.current) {
-      clearInterval(durationIntervalRef.current);
-      durationIntervalRef.current = null;
-    }
+    if (durationIntervalRef.current) clearInterval(durationIntervalRef.current);
   }, [activeCall]);
-
   const toggleMute = useCallback(() => {
     if (activeCall) {
       const newMuted = !isMuted;
@@ -125,16 +99,5 @@ export function useTwilioDevice(): UseTwilioDeviceReturn {
     }
   }, [activeCall, isMuted]);
 
-  return {
-    isReady,
-    incomingCall,
-    activeCall,
-    acceptCall,
-    rejectCall,
-    hangUp,
-    toggleMute,
-    isMuted,
-    callerNumber,
-    callDuration,
-  };
+  return { isReady, incomingCall, activeCall, acceptCall, rejectCall, hangUp, toggleMute, isMuted, callerNumber, callDuration };
 }
