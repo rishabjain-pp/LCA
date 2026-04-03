@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   ResponsiveContainer, PieChart, Pie, Cell, Tooltip,
 } from 'recharts';
@@ -17,6 +17,16 @@ const SENTIMENT_EMOJI: Record<string, string> = {
 
 // ─── Call Detail Modal ────────────────────────────────────────────────────────
 function CallDetailModal({ call, onClose }: { call: CallSummary; onClose: () => void }) {
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      document.body.style.overflow = 'auto';
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/20 backdrop-blur-sm animate-fade-in"
@@ -152,6 +162,16 @@ function SubCategoryCallsModal({
 }) {
   const resolvedPct = Math.round((subCategory.resolved / subCategory.count) * 100);
 
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      document.body.style.overflow = 'auto';
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/20 backdrop-blur-sm animate-fade-in"
@@ -161,47 +181,54 @@ function SubCategoryCallsModal({
         className="bg-surface-container-lowest rounded-3xl shadow-ambient w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col animate-slide-up"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-8 py-5 border-b border-surface-container">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${category.bgColor}20` }}>
-              <span className="material-symbols-outlined text-[22px]" style={{ color: category.bgColor }}>{category.icon}</span>
+        {/* Header - Compact */}
+        <div className="px-6 py-5 flex items-center justify-between border-b border-surface-container">
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-sm" style={{ backgroundColor: `${category.color}15` }}>
+              <span className="material-symbols-outlined text-[24px]" style={{ color: category.color }}>{category.icon}</span>
             </div>
             <div>
-              <h3 className="font-headline font-bold text-lg text-primary">{subCategory.name}</h3>
-              <p className="text-xs text-on-surface-variant">{category.name} · {subCategory.count} contacts · {resolvedPct}% resolved</p>
+              <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1" style={{ color: category.color }}>{category.name}</p>
+              <h3 className="font-headline font-black text-xl text-primary leading-tight">{subCategory.name}</h3>
+              <p className="text-xs text-on-surface-variant font-medium mt-0.5">Found {subCategory.count} contact records</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors">
-            <span className="material-symbols-outlined">close</span>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-surface-container text-on-surface-variant hover:text-primary transition-all">
+            <span className="material-symbols-outlined text-[24px]">close</span>
           </button>
         </div>
 
-        {/* Stats strip */}
+        {/* Stats Strip - Compact Layout */}
         <div className="grid grid-cols-4 gap-px bg-surface-container-low border-b border-surface-container">
           {[
-            { label: 'Total Contacts', value: subCategory.count, icon: 'call' },
+            { label: 'Total', value: subCategory.count, icon: 'call' },
             { label: 'Resolved', value: subCategory.resolved, icon: 'check_circle' },
-            { label: 'Pending', value: subCategory.count - subCategory.resolved, icon: 'schedule' },
-            { label: 'Avg Duration', value: subCategory.avgDuration, icon: 'timer' },
+            { label: 'Pending', value: subCategory.count - subCategory.resolved, icon: 'pending' },
+            { label: 'Avg Time', value: subCategory.avgDuration, icon: 'timer' },
           ].map(s => (
-            <div key={s.label} className="bg-surface-container-lowest px-5 py-4 flex items-center gap-3">
-              <span className="material-symbols-outlined text-[20px]" style={{ color: category.bgColor }}>{s.icon}</span>
+            <div key={s.label} className="bg-surface-container-lowest px-5 py-3 flex items-center gap-3">
+              <span className="material-symbols-outlined text-[18px]" style={{ color: category.color }}>{s.icon}</span>
               <div>
-                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">{s.label}</p>
-                <p className="text-lg font-black font-headline" style={{ color: category.bgColor }}>{s.value}</p>
+                <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider leading-none mb-1">{s.label}</p>
+                <p className="text-base font-black font-headline leading-none" style={{ color: category.color }}>{s.value}</p>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Resolution bar */}
-        <div className="px-8 py-3 bg-surface-container-low border-b border-surface-container flex items-center gap-3">
-          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest w-24">Resolution</span>
-          <div className="flex-1 h-2 bg-surface-container rounded-full overflow-hidden">
-            <div className="h-full rounded-full bg-on-tertiary-container transition-all" style={{ width: `${resolvedPct}%` }} />
+        {/* Resolution bar section - SLIM */}
+        <div className="px-6 py-3 bg-surface-container-low border-b border-surface-container flex items-center gap-4">
+          <span className="text-[10px] font-black text-primary uppercase tracking-widest whitespace-nowrap">Resolution Rate</span>
+          <div className="flex-1 h-2 bg-surface-container-highest rounded-full overflow-hidden shadow-inner flex items-center">
+            <div 
+              className="h-full rounded-full transition-all duration-1000 ease-out" 
+              style={{ 
+                width: `${resolvedPct}%`, 
+                backgroundColor: category.color
+              }} 
+            />
           </div>
-          <span className="text-sm font-bold text-on-tertiary-container">{resolvedPct}%</span>
+          <span className="text-sm font-black text-primary font-headline">{resolvedPct}%</span>
         </div>
 
         {/* Call list */}
@@ -218,8 +245,8 @@ function SubCategoryCallsModal({
                   className="w-full flex items-center gap-4 px-5 py-4 bg-surface-container-low hover:bg-surface-container rounded-2xl transition-colors text-left group"
                 >
                   {/* Avatar */}
-                  <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center text-white text-xs font-bold font-headline flex-shrink-0">
-                    {call.customerName.split(' ').map(n => n[0]).join('')}
+                  <div className="w-10 h-10 rounded-xl bg-[#002265] flex items-center justify-center text-white text-xs font-bold font-headline flex-shrink-0 shadow-sm transition-transform group-hover:scale-105">
+                    <span className="material-symbols-outlined material-symbols-filled text-white text-[18px]">call</span>
                   </div>
                   {/* Info */}
                   <div className="flex-1 min-w-0">
@@ -248,6 +275,17 @@ function SubCategoryCallsModal({
 // ─── Hero Metric Modal ────────────────────────────────────────────────────────
 function SubMetricModal({ metric, calls, onClose }: { metric: DashboardMetric; calls: CallSummary[]; onClose: () => void }) {
   const relatedCalls = calls.filter(c => c.category === metric.category);
+  
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      document.body.style.overflow = 'auto';
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/20 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <div className="bg-surface-container-lowest rounded-3xl shadow-ambient w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col animate-slide-up" onClick={e => e.stopPropagation()}>
@@ -310,7 +348,7 @@ function CategoryExplorer({
   categories: CategoryData[];
   onSubCategoryClick: (cat: CategoryData, sub: SubCategoryData) => void;
 }) {
-  const [expandedCat, setExpandedCat] = useState<string>(categories[0]?.id || '');
+  const [expandedCat, setExpandedCat] = useState<string>('');
 
   return (
     <div className="xl:col-span-8 bg-surface-container-lowest rounded-2xl p-8 shadow-card flex flex-col">
@@ -330,20 +368,30 @@ function CategoryExplorer({
                   <span className="material-symbols-outlined" style={{ color: cat.color }}>{cat.icon}</span>
                   <span className="font-bold text-primary">{cat.name}</span>
                 </div>
-                <span className="text-sm font-black text-primary">{cat.totalCount}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-black text-primary font-mono">{cat.totalCount}</span>
+                  <span className={`material-symbols-outlined text-[20px] transition-transform duration-300 ${isOpen ? 'rotate-180 text-primary' : 'text-outline-variant'}`}>
+                    expand_more
+                  </span>
+                </div>
               </button>
               {isOpen && (
-                <div className="p-4 space-y-2">
-                  {cat.subCategories.map(sub => (
+                <div className="p-4 space-y-2 bg-surface-container-lowest border-t border-surface-container/10">
+                  {cat.subCategories.length > 0 ? cat.subCategories.map(sub => (
                     <button
                       key={sub.id}
                       onClick={() => onSubCategoryClick(cat, sub)}
-                      className="w-full flex items-center justify-between px-4 py-2 rounded-lg hover:bg-surface-container text-sm"
+                      className="w-full flex items-center justify-between px-4 py-2 rounded-lg hover:bg-surface-container text-sm group"
                     >
-                      <span className="text-on-surface-variant">{sub.name}</span>
-                      <span className="font-bold text-primary">{sub.count}</span>
+                      <span className="text-on-surface-variant group-hover:text-primary transition-colors">{sub.name}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-primary font-mono">{sub.count}</span>
+                        <span className="material-symbols-outlined text-outline-variant text-[18px] opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span>
+                      </div>
                     </button>
-                  ))}
+                  )) : (
+                    <div className="px-4 py-2 text-xs text-on-surface-variant italic">No records found.</div>
+                  )}
                 </div>
               )}
             </div>
@@ -360,6 +408,24 @@ export default function DashboardPage() {
   const [selectedMetric, setSelectedMetric] = useState<DashboardMetric | null>(null);
   const [subCategoryModal, setSubCategoryModal] = useState<{ cat: CategoryData; sub: SubCategoryData } | null>(null);
   const [realCalls, setRealCalls] = useState<CallSummary[]>([]);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'issue' | 'resolved' | 'negative'>('all');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+        setFilterOpen(false);
+      }
+    };
+    if (filterOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [filterOpen]);
+
   const apiBase = (import.meta as { env?: { VITE_API_BASE?: string } }).env?.VITE_API_BASE || '';
 
   useEffect(() => {
@@ -374,11 +440,25 @@ export default function DashboardPage() {
           .filter(c => c['status'] === 'ended')
           .map(c => {
             const a = (c['analysis'] as Record<string, unknown>) || {};
-            const dur = (c['duration'] as number) || 0;
+            const startTimeStr = (c['startTime'] as string) || (a['startTime'] as string) || '';
+            const endTimeStr = (c['endTime'] as string) || (a['endTime'] as string) || '';
+            
+            const sDate = startTimeStr ? new Date(startTimeStr) : null;
+            const eDate = endTimeStr ? new Date(endTimeStr) : null;
+            
+            let dur = 0;
+            if (sDate && eDate && !isNaN(sDate.getTime()) && !isNaN(eDate.getTime())) {
+               dur = Math.floor((eDate.getTime() - sDate.getTime()) / 1000);
+            } else {
+               dur = (c['duration'] as number) || 0;
+            }
+
             const rawTranscripts = (c['transcripts'] as Record<string, unknown>[]) || [];
             const sid = (c['callSid'] as string) || (c['id'] as string) || '';
             const match = sid.match(/_\+?(\d{10,15})_/);
-            const num = match ? `+${match[1]}` : (a['customerNumber'] as string) || (c['callerNumber'] as string) || 'External';
+            const sideNum = match ? `+${match[1]}` : (c['callerNumber'] as string) || 'External';
+            const analysisNum = a['customerNumber'] as string;
+            const num = (analysisNum && analysisNum !== 'Unknown') ? analysisNum : sideNum;
 
             return {
               id: c['id'] as string,
@@ -387,17 +467,17 @@ export default function DashboardPage() {
               duration: `${Math.floor(dur / 60).toString().padStart(2, '0')}:${(dur % 60).toString().padStart(2, '0')}`,
               durationSeconds: dur,
               category: (a['category'] as CallSummary['category']) || 'support',
-              subCategory: (a['subCategory'] as string) || 'Account Management',
-              agentName: (a['agentName'] as string) || 'AI Agent',
+              subCategory: (a['subCategory'] && a['subCategory'] !== 'Unknown') ? (a['subCategory'] as string) : 'General',
+              agentName: (a['agentName'] && a['agentName'] !== 'Unknown') ? (a['agentName'] as string) : 'AI Agent',
               agentId: 'ai1',
-              customerName: (a['customerName'] as string) || 'Caller',
+              customerName: (a['customerName'] && a['customerName'] !== 'Unknown') ? (a['customerName'] as string) : '',
               customerNumber: num,
               customerId: (a['customerId'] as string) || 'CUST-0000',
               priority: (a['priority'] as CallSummary['priority']) || 'normal',
               sentiment: sentimentMap[(a['sentiment'] as string) || ''] || 'neutral',
               sentimentScore: (a['sentimentScore'] as number) || 50,
-              startTime: c['startTime'] ? new Date(c['startTime'] as string).toLocaleTimeString() : '',
-              endTime: c['endTime'] ? new Date(c['endTime'] as string).toLocaleTimeString() : '',
+              startTime: startTimeStr ? new Date(startTimeStr).toLocaleTimeString() : '',
+              endTime: endTimeStr ? new Date(endTimeStr).toLocaleTimeString() : '',
               status: 'completed' as const,
               issues: (a['issues'] as string[]) || [],
               resolution: (a['resolution'] as string) || '',
@@ -416,12 +496,12 @@ export default function DashboardPage() {
               tags: (a['tags'] as string[]) || [],
             } as CallSummary;
           });
-        setRealCalls(adapted.length > 0 ? adapted : mockCallSummaries);
+        setRealCalls((data.calls as Record<string, unknown>[]).length > 0 ? adapted : []);
       })
-      .catch(() => setRealCalls(mockCallSummaries));
+      .catch(() => setRealCalls([]));
   }, [apiBase]);
 
-  const callSummaries = realCalls.length > 0 ? realCalls : mockCallSummaries;
+  const callSummaries = realCalls;
 
   // 1. Dynamic Sentiment Data
   const dynamicSentimentData: { name: string, value: number, color: string }[] = useMemo(() => {
@@ -446,7 +526,7 @@ export default function DashboardPage() {
   const positivePct = dynamicSentimentData.find(d => d.name === 'Positive')?.value || 0;
 
   // 2. Dynamic Top Metrics
-  const dynamicMetrics = useMemo(() => {
+  const dynamicMetricsData = useMemo(() => {
     let support = 0, billing = 0, technical = 0, churnRisk = 0;
     let supportRes = 0, billingRes = 0, techRes = 0;
     
@@ -457,20 +537,41 @@ export default function DashboardPage() {
       if (c.sentiment === 'frustrated') churnRisk++;
     });
 
-    return [
-      { id: 'm1', label: 'Support Queries', value: support, change: Math.round((supportRes / (support || 1)) * 100), changeDirection: 'up', category: 'support', icon: 'headset_mic', color: '#002265' },
-      { id: 'm2', label: 'Billing Disputes', value: billing, change: Math.round((billingRes / (billing || 1)) * 100), changeDirection: 'up', category: 'billing', icon: 'credit_card_off', color: '#fe6b00' },
-      { id: 'm3', label: 'Technical Issues', value: technical, change: Math.round((techRes / (technical || 1)) * 100), changeDirection: 'down', category: 'technical', icon: 'router', color: '#4ebe42' },
-      { id: 'm4', label: 'Churn Risk', value: churnRisk, change: 0, changeDirection: 'up', category: 'outbound', icon: 'person_cancel', color: '#a04100' },
-    ];
+    const totalSecs = callSummaries.reduce((acc, c) => acc + (c.durationSeconds || 0), 0);
+    const avgSecs = callSummaries.length > 0 ? Math.round(totalSecs / callSummaries.length) : 0;
+    const avgFmt = `${Math.floor(avgSecs / 60).toString().padStart(2, '0')}:${(avgSecs % 60).toString().padStart(2, '0')}`;
+
+    const totalCsa = callSummaries.reduce((acc, c) => acc + (c.sentimentScore || 50), 0);
+    const avgCsa = callSummaries.length > 0 ? (totalCsa / callSummaries.length / 20).toFixed(1) : '0.0';
+    
+    // Simple heuristic for demo: if it has resolution text, it's resolved
+    const resolvedCount = callSummaries.filter(c => c.resolution && c.resolution.length > 20).length;
+    const fcrPct = callSummaries.length > 0 ? Math.round((resolvedCount / callSummaries.length) * 100) : 0;
+
+    return {
+      metrics: [
+        { id: 'm1', label: 'Support Queries', value: support, change: Math.round((supportRes / (support || 1)) * 100), changeDirection: 'up', category: 'support', icon: 'headset_mic', color: '#1A73E8' },
+        { id: 'm2', label: 'Billing Disputes', value: billing, change: Math.round((billingRes / (billing || 1)) * 100), changeDirection: 'up', category: 'billing', icon: 'credit_card_off', color: '#F29900' },
+        { id: 'm3', label: 'Technical Issues', value: technical, change: Math.round((techRes / (technical || 1)) * 100), changeDirection: 'down', category: 'technical', icon: 'router', color: '#00897B' },
+        { id: 'm4', label: 'Churn Risk', value: churnRisk, change: 0, changeDirection: 'up', category: 'outbound', icon: 'person_cancel', color: '#D93025' },
+      ],
+      avgHandleTime: avgFmt,
+      csat: avgCsa,
+      fcr: fcrPct
+    };
   }, [callSummaries]);
+
+  const metrics = dynamicMetricsData.metrics;
+  const avgHandleTime = dynamicMetricsData.avgHandleTime;
+  const csatScore = dynamicMetricsData.csat;
+  const fcrPct = dynamicMetricsData.fcr;
 
   // 3. Dynamic Category Explorer Tree
   const dynamicCategoryTree = useMemo(() => {
     const cats: Record<string, any> = {
-      support: { id: 'support', name: 'General Support', icon: 'headset_mic', color: '#002265', bgColor: '#dbe1ff', totalCount: 0, resolved: 0, subCategories: {} },
-      billing: { id: 'billing', name: 'Billing', icon: 'credit_card_off', color: '#fe6b00', bgColor: '#ffdbcc', totalCount: 0, resolved: 0, subCategories: {} },
-      technical: { id: 'technical', name: 'Technical', icon: 'router', color: '#002f01', bgColor: '#8afc77', totalCount: 0, resolved: 0, subCategories: {} }
+      support: { id: 'support', name: 'General Support', icon: 'headset_mic', color: '#1A73E8', bgColor: '#E8F0FE', totalCount: 0, resolved: 0, subCategories: {} },
+      billing: { id: 'billing', name: 'Billing', icon: 'credit_card_off', color: '#F29900', bgColor: '#FEF7E0', totalCount: 0, resolved: 0, subCategories: {} },
+      technical: { id: 'technical', name: 'Technical', icon: 'router', color: '#00897B', bgColor: '#E0F2F1', totalCount: 0, resolved: 0, subCategories: {} }
     };
     
     callSummaries.forEach(c => {
@@ -501,8 +602,8 @@ export default function DashboardPage() {
   }, [callSummaries]);
 
   const metricBorderColors: Record<string, string> = {
-    'm1': 'border-primary', 'm2': 'border-secondary-container',
-    'm3': 'border-on-tertiary-container', 'm4': 'border-secondary',
+    'm1': '#1A73E8', 'm2': '#F29900',
+    'm3': '#00897B', 'm4': '#D93025',
   };
 
   const handleSubCategoryClick = (cat: CategoryData, sub: SubCategoryData) => {
@@ -514,23 +615,43 @@ export default function DashboardPage() {
     setSelectedCall(call);
   };
 
+  const notifications = useMemo(() => {
+    return callSummaries
+      .filter(c => c.issues && c.issues.length > 0)
+      .slice(0, 5)
+      .map(c => ({
+        id: c.id,
+        text: `${c.customerName || c.customerNumber}: ${c.issues[0]}`,
+        time: c.startTime || 'Just now',
+        color: c.priority === 'critical' ? 'bg-error' : 'bg-secondary'
+      }));
+  }, [callSummaries]);
+
+  const handleNotificationClick = (id: string) => {
+    const call = callSummaries.find(c => c.id === id);
+    if (call) setSelectedCall(call);
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <TopBar
         title="WowWay"
         subtitle="Call Center Intelligence Dashboard"
         rightContent={null}
+        notifications={notifications}
+        onNotificationClick={handleNotificationClick}
       />
 
       <main className="p-8 space-y-6 flex-1">
 
         {/* ── Hero Metric Cards ── */}
         <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-          {dynamicMetrics.map((metric: any) => (
+          {metrics.map((metric: any) => (
             <button
               key={metric.id}
               onClick={() => setSelectedMetric(metric)}
-              className={`metric-card border-b-4 ${metricBorderColors[metric.id]} text-left hover:shadow-float hover:-translate-y-0.5 transition-all duration-200 group cursor-pointer`}
+              className="metric-card text-left hover:shadow-float hover:-translate-y-0.5 transition-all duration-200 group cursor-pointer"
+              style={{ borderBottom: `4px solid ${metricBorderColors[metric.id]}` }}
             >
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -541,7 +662,10 @@ export default function DashboardPage() {
                   <span className="material-symbols-outlined text-[24px]" style={{ color: metric.color }}>{metric.icon}</span>
                 </div>
               </div>
-              <div className={`flex items-center gap-2 text-sm font-bold ${metric.changeDirection === 'up' && metric.category === 'billing' ? 'text-error' : 'text-on-tertiary-container'}`}>
+              <div className={`flex items-center gap-2 text-sm font-bold ${
+                ((metric.id === 'm2' || metric.id === 'm4') && metric.changeDirection === 'up') ? 'text-error' : 
+                (metric.id === 'm3' || metric.changeDirection === 'down') ? 'text-success' : 'text-primary'
+              }`}>
                 <span className="material-symbols-outlined text-[16px]">{metric.changeDirection === 'up' ? 'trending_up' : 'trending_down'}</span>
                 <span>{metric.change}% {metric.changeDirection === 'up' ? 'vs Last Week' : 'Resolved'}</span>
               </div>
@@ -603,10 +727,10 @@ export default function DashboardPage() {
             {/* Quick summary stats */}
             <div className="mt-6 pt-5 border-t border-surface-container grid grid-cols-2 gap-3">
               {[
-                { label: 'Avg Handle Time', value: '05:48', icon: 'timer' },
-                { label: 'First Call Res.', value: '84%', icon: 'task_alt' },
-                { label: 'Queue Wait', value: '01:22', icon: 'hourglass_top' },
-                { label: 'CSAT Score', value: '4.6/5', icon: 'star' },
+                { label: 'Avg Handle Time', value: avgHandleTime, icon: 'timer' },
+                { label: 'First Call Res.', value: `${fcrPct}%`, icon: 'task_alt' },
+                { label: 'Queue Wait', value: '00:15', icon: 'hourglass_top' },
+                { label: 'CSAT Score', value: `${csatScore}/5`, icon: 'star' },
               ].map(s => (
                 <div key={s.label} className="bg-surface-container-low rounded-xl p-3 flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary text-[18px]">{s.icon}</span>
@@ -627,28 +751,76 @@ export default function DashboardPage() {
               <h2 className="text-xl font-black text-primary font-headline">Recent Call Records</h2>
               <p className="text-on-surface-variant text-sm mt-0.5">Click any row to view full details & transcript</p>
             </div>
-            <button className="btn-secondary text-sm px-4 py-2">
-              <span className="material-symbols-outlined text-[18px]">filter_list</span>
-              Filter
-            </button>
+            <div className="relative" ref={filterRef}>
+              <button 
+                onClick={() => setFilterOpen(!filterOpen)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${activeFilter !== 'all' ? 'bg-primary text-white shadow-lg' : 'bg-surface-container-low text-primary hover:bg-surface-container font-bold'}`}
+              >
+                {activeFilter !== 'all' ? (
+                  <span 
+                    className="material-symbols-outlined text-[20px] hover:scale-120 transition-transform cursor-pointer"
+                    onClick={(e) => { e.stopPropagation(); setActiveFilter('all'); setFilterOpen(false); }}
+                  >
+                    close
+                  </span>
+                ) : (
+                  <span className="material-symbols-outlined text-[20px]">filter_list</span>
+                )}
+                <span className="text-[12px] uppercase tracking-wider">Filter {activeFilter !== 'all' && `(${activeFilter})`}</span>
+              </button>
+              
+              {filterOpen && (
+                <div className="absolute right-0 top-12 w-56 bg-surface-container-lowest rounded-2xl shadow-ambient border border-surface-container z-50 p-2 animate-slide-up">
+                  {[
+                    { id: 'all', label: 'All Records', icon: 'list', color: 'text-primary' },
+                    { id: 'issue', label: 'With Issues', icon: 'warning', color: 'text-error' },
+                    { id: 'negative', label: 'Negative Sentiment', icon: 'sentiment_very_dissatisfied', color: 'text-amber-600' },
+                    { id: 'resolved', label: 'Resolved Only', icon: 'check_circle', color: 'text-success' },
+                  ].map(f => (
+                    <button
+                      key={f.id}
+                      onClick={() => { setActiveFilter(f.id as any); setFilterOpen(false); }}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-colors ${activeFilter === f.id ? 'bg-primary/10 text-primary font-bold shadow-sm' : 'text-on-surface-variant hover:bg-surface-container-low'}`}
+                    >
+                      <span className={`material-symbols-outlined text-[18px] ${f.color}`}>{f.icon}</span>
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div className="divide-y divide-surface-container">
-            {callSummaries.slice(0, 5).map(call => (
+            {callSummaries
+              .filter(c => {
+                if (activeFilter === 'issue') return (c.issues?.length || 0) > 0 || c.priority === 'critical' || c.priority === 'high';
+                if (activeFilter === 'negative') return c.sentiment === 'negative' || c.sentiment === 'frustrated';
+                if (activeFilter === 'resolved') return c.status === 'completed';
+                return true;
+              })
+              .slice(0, 10)
+              .map(call => (
               <button
                 key={call.id}
                 onClick={() => setSelectedCall(call)}
                 className="w-full flex items-center gap-4 px-8 py-4 hover:bg-surface-container-low transition-colors text-left group"
               >
-                <div className="w-9 h-9 gradient-primary rounded-xl flex items-center justify-center flex-shrink-0">
-                  <span className="material-symbols-outlined text-white text-[18px]">call</span>
+                <div className="w-10 h-10 bg-[#002265] rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm transition-transform group-hover:scale-105">
+                  <span className="material-symbols-outlined material-symbols-filled text-white text-[20px]">call</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-primary truncate">{call.customerName}</p>
-                  <p className="text-xs text-on-surface-variant">{call.subCategory} · {call.agentName}</p>
+                  <p className="text-sm font-bold text-primary truncate">{call.customerName || call.customerNumber}</p>
+                  <p className="text-xs text-on-surface-variant line-clamp-1">{(call.customerName ? call.customerNumber + ' · ' : '') + call.subCategory + ' · ' + call.agentName}</p>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
                   <span className="text-sm font-mono text-on-surface-variant">{call.duration}</span>
                   <span className="text-xl">{SENTIMENT_EMOJI[call.sentiment]}</span>
+                  {call.issues && call.issues.length > 0 && (
+                    <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-error/10 text-error text-[10px] font-black uppercase tracking-tighter">
+                      <span className="material-symbols-outlined text-[14px]">warning</span>
+                      Issue
+                    </span>
+                  )}
                   <span className={call.priority === 'critical' ? 'badge-critical' : call.priority === 'high' || call.priority === 'medium' ? 'badge-medium' : 'badge-normal'}>{call.priority}</span>
                 </div>
                 <span className="material-symbols-outlined text-outline opacity-0 group-hover:opacity-100 transition-opacity text-[18px]">chevron_right</span>

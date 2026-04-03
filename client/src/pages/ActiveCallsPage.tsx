@@ -209,22 +209,24 @@ export default function ActiveCallsPage() {
     positive: '😊', neutral: '😐', negative: '😟', frustrated: '😠',
   };
 
-  const filtered = activeCalls.filter(c => {
+  const activeOnly = activeCalls.filter(c => c.status === 'active');
+
+  const filtered = activeOnly.filter(c => {
     if (filter === 'critical') return c.priority === 'critical';
     if (filter === 'hold') return c.isOnHold;
     return true;
   });
 
-  const totalDurationSeconds = activeCalls.reduce((a, b) => a + b.durationSeconds, 0);
-  const avgDuration = activeCalls.length > 0
-    ? fmtDuration(Math.round(totalDurationSeconds / activeCalls.length))
+  const totalDurationSeconds = activeOnly.reduce((a, b) => a + b.durationSeconds, 0);
+  const avgDuration = activeOnly.length > 0
+    ? fmtDuration(Math.round(totalDurationSeconds / activeOnly.length))
     : '00:00';
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <TopBar
         title="Active Calls Monitor"
-        subtitle={`Monitoring ${activeCalls.length} ongoing connections in real-time${connected ? '' : ' · Connecting...'}`}
+        subtitle={`Monitoring ${activeOnly.length} ongoing connections in real-time${connected ? '' : ' · Connecting...'}`}
         rightContent={
           <div className="flex gap-2">
 
@@ -238,9 +240,9 @@ export default function ActiveCallsPage() {
             {/* Stats bar */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
               {[
-                { label: 'Total Active', value: activeCalls.length, icon: 'headset_mic', color: '#002265' },
-                { label: 'Critical', value: activeCalls.filter(c => c.priority === 'critical').length, icon: 'warning', color: '#ba1a1a' },
-                { label: 'On Hold', value: activeCalls.filter(c => c.isOnHold).length, icon: 'pause_circle', color: '#fe6b00' },
+                { label: 'Total Active', value: activeOnly.length, icon: 'headset_mic', color: '#002265' },
+                { label: 'Critical', value: activeOnly.filter(c => c.priority === 'critical').length, icon: 'warning', color: '#ba1a1a' },
+                { label: 'On Hold', value: activeOnly.filter(c => c.isOnHold).length, icon: 'pause_circle', color: '#fe6b00' },
                 { label: 'Avg Duration', value: avgDuration, icon: 'schedule', color: '#004802' },
               ].map(s => (
                 <div key={s.label} className="metric-card flex items-center gap-3 p-4">

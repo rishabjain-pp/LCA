@@ -44,23 +44,28 @@ function extractNumber(sid: string, fallback: string): string {
 
 function callInfoToActiveCall(call: LcaCallInfo): ActiveCall {
   const num = extractNumber(call.callSid, call.customerNumber || call.callerNumber || 'External');
+  const start = new Date(call.startTime).getTime();
+  const elapsed = Math.max(0, Math.floor((Date.now() - start) / 1000));
+  const m = Math.floor(elapsed / 60).toString().padStart(2, '0');
+  const s = (elapsed % 60).toString().padStart(2, '0');
+  
   return {
     id: call.callSid,
     callId: call.callSid.slice(0, 12),
     callSid: call.callSid,
-    duration: '00:00',
-    durationSeconds: 0,
+    duration: `${m}:${s}`,
+    durationSeconds: elapsed,
     category: 'support',
     subCategory: 'Account Management',
     agentName: 'AI Agent',
     agentId: 'ai1',
-    customerName: call.customerName || 'Caller',
+    customerName: call.customerName || '',
     customerNumber: num,
     customerId: call.callSid.slice(0, 8),
     priority: 'normal',
     sentiment: 'neutral',
     sentimentScore: 50,
-    startTime: new Date(call.startTime).toLocaleTimeString(),
+    startTime: call.startTime,
     status: call.status === 'active' ? 'active' : 'completed',
     issues: [],
     transcript: [],
@@ -103,13 +108,19 @@ export function useLcaData(): UseLcaDataReturn {
   const startDurationTimer = useCallback((callSid: string, startTime: string) => {
     const start = new Date(startTime).getTime();
     const timer = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - start) / 1000);
+      const elapsed = Math.max(0, Math.floor((Date.now() - start) / 1000));
       const m = Math.floor(elapsed / 60).toString().padStart(2, '0');
       const s = (elapsed % 60).toString().padStart(2, '0');
       setCalls(prev => {
         const next = new Map(prev);
         const call = next.get(callSid);
-        if (call) next.set(callSid, { ...call, duration: `${m}:${s}`, durationSeconds: elapsed });
+        if (call) {
+          next.set(callSid, { 
+            ...call, 
+            duration: `${m}:${s}`, 
+            durationSeconds: elapsed 
+          });
+        }
         return next;
       });
     }, 1000);
@@ -153,8 +164,7 @@ export function useLcaData(): UseLcaDataReturn {
           stopDurationTimer(msg.callSid);
           setCalls(prev => {
             const next = new Map(prev);
-            const call = next.get(msg.callSid);
-            if (call) next.set(msg.callSid, { ...call, status: 'completed' });
+            next.delete(msg.callSid);
             return next;
           });
           break;
