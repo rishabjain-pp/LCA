@@ -13,6 +13,7 @@ Phone Call -> Twilio -> Media Streams WS -> [This Server] -> AudioHook WS -> AWS
 ## Prerequisites
 
 - Node.js 20+
+- Python 3.10+ (Strictly required for the `livekit.agents` package)
 - [ngrok](https://ngrok.com/) (for local development)
 - Twilio account with an active phone number
 - AWS account with the LCA CloudFormation stack deployed
