@@ -1,1 +1,5 @@
-# Python\nvenv/\n__pycache__/\n*.pyc\n.env
+# Python
+venv/
+__pycache__/
+*.pyc
+.env
