@@ -87,7 +87,10 @@
     @apply px-3 py-1 bg-error-container text-on-error-container text-[10px] font-black uppercase rounded-full tracking-wider;
   }
   .badge-normal {
-    @apply px-3 py-1 bg-surface-container-high text-on-surface-variant text-[10px] font-black uppercase rounded-full tracking-wider;
+    @apply px-3 py-1 bg-primary-fixed text-on-primary-fixed-variant text-[10px] font-black uppercase rounded-full tracking-wider;
+  }
+  .badge-ended {
+    @apply px-3 py-1 bg-surface-container-highest text-on-surface-variant text-[10px] font-black uppercase rounded-full tracking-wider;
   }
   .badge-medium {
     @apply px-3 py-1 bg-secondary-fixed text-on-secondary-fixed-variant text-[10px] font-black uppercase rounded-full tracking-wider;

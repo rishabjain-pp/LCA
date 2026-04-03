@@ -29,13 +29,9 @@ export default function LoginPage() {
             <span className="material-symbols-outlined text-white text-[18px]">wifi</span>
           </div>
           <span className="text-xl font-bold text-primary font-headline">WowWay</span>
-          <span className="text-xs text-on-surface-variant ml-1 hidden sm:block">Command Horizon</span>
         </div>
         <div className="flex items-center gap-4">
-          <button className="flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors text-sm font-medium px-3 py-1.5 rounded-full hover:bg-surface-container">
-            <span className="material-symbols-outlined text-[18px]">help</span>
-            <span>Help</span>
-          </button>
+
           <button className="flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors text-sm font-medium px-3 py-1.5 rounded-full hover:bg-surface-container">
             <span className="material-symbols-outlined text-[18px]">language</span>
             <span>EN</span>
@@ -135,11 +131,7 @@ export default function LoginPage() {
               </div>
             </form>
 
-            {/* Secure Badge */}
-            <div className="mt-8 flex items-center justify-center gap-2 py-2.5 px-4 bg-tertiary/5 rounded-full">
-              <span className="material-symbols-outlined text-tertiary text-sm material-symbols-filled">verified_user</span>
-              <span className="text-[10px] font-black uppercase tracking-widest text-on-tertiary-fixed-variant font-label">Secure 256-bit Encrypted Session</span>
-            </div>
+
           </div>
 
           {/* Bento sub-cards */}

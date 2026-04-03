@@ -92,10 +92,7 @@ function LiveAnalysisSidebar({
           <div className="flex items-center gap-2 mb-4">
             <span className="material-symbols-outlined text-primary text-[18px]">forum</span>
             <h4 className="font-headline font-bold text-sm text-primary">Live Transcript</h4>
-            <span className="ml-auto px-2 py-0.5 bg-tertiary/10 rounded-full text-[9px] font-black text-on-tertiary-fixed-variant uppercase tracking-wider flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-on-tertiary-container live-dot"></span>
-              AI Verified
-            </span>
+
           </div>
           <div className="space-y-3 max-h-56 overflow-y-auto scrollbar-thin pr-1">
             {liveTranscript.map((line) => (
@@ -105,30 +102,20 @@ function LiveAnalysisSidebar({
                   <span className="text-outline">{line.timestamp}</span>
                 </div>
                 <div className={line.speaker === 'agent'
-                  ? 'max-w-[90%] p-3 bg-primary text-white rounded-tl-xl rounded-br-xl rounded-bl-xl text-xs leading-relaxed shadow-md'
-                  : 'max-w-[90%] p-3 bg-surface-container-low rounded-tr-xl rounded-br-xl rounded-bl-xl text-on-surface text-xs leading-relaxed'
+                  ? 'max-w-[85%] p-3 bg-primary text-white rounded-tl-xl rounded-br-xl rounded-bl-xl text-xs leading-relaxed shadow-sm'
+                  : `max-w-[85%] p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl text-xs leading-relaxed bg-surface-container-low text-on-surface border-l-[12px] ${
+                      line.issueDetected || line.sentiment === 'negative' || line.sentiment === 'frustrated'
+                        ? 'border-error/40 border-l-error shadow-[0_4px_15px_-5px_rgba(186,26,26,0.3)]'
+                        : line.sentiment === 'positive'
+                        ? 'border-tertiary-fixed/40 border-l-tertiary-fixed shadow-[0_4px_15px_-5px_rgba(78,190,66,0.3)]'
+                        : 'border-primary-container/30 border-l-primary-container shadow-[0_4px_15px_-5px_rgba(0,35,148,0.1)]'
+                    } border`
                 }>
-                  {line.keywords?.length ? (
-                    <span>
-                      {line.text.split(new RegExp(`(${line.keywords.join('|')})`, 'gi')).map((part, i) =>
-                        line.keywords?.some(k => k.toLowerCase() === part.toLowerCase())
-                          ? <mark key={i} className="bg-secondary-container/30 text-secondary font-bold px-0.5 rounded not-italic">{part}</mark>
-                          : part
-                      )}
-                    </span>
-                  ) : line.text}
+                  {line.text}
                 </div>
               </div>
             ))}
-            {/* Typing indicator */}
-            <div className="flex items-start gap-1.5">
-              <div className="p-3 bg-surface-container-low rounded-tr-xl rounded-br-xl rounded-bl-xl flex items-center gap-1">
-                {[0, 1, 2].map(i => (
-                  <span key={i} className="w-1.5 h-1.5 rounded-full bg-outline animate-pulse" style={{ animationDelay: `${i * 0.15}s` }} />
-                ))}
-              </div>
-              <span className="text-[9px] text-on-surface-variant mt-1">Customer typing...</span>
-            </div>
+
           </div>
         </div>
 
@@ -139,12 +126,19 @@ function LiveAnalysisSidebar({
             <h4 className="font-headline font-bold text-sm text-primary">Issues Detected</h4>
           </div>
           <div className="space-y-2">
-            {call.issues.map((issue, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-2 bg-error-container/20 rounded-xl">
-                <span className="w-1.5 h-1.5 rounded-full bg-error flex-shrink-0"></span>
-                <span className="text-sm text-on-error-container font-medium">{issue}</span>
+            {call.issues.length > 0 ? (
+              call.issues.map((issue, i) => (
+                <div key={i} className="flex items-center gap-2 px-3 py-2 bg-error-container/20 rounded-xl">
+                  <span className="w-1.5 h-1.5 rounded-full bg-error flex-shrink-0"></span>
+                  <span className="text-sm text-on-error-container font-medium">{issue}</span>
+                </div>
+              ))
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-2 bg-surface-container-low rounded-xl">
+                <span className="w-1.5 h-1.5 rounded-full bg-on-tertiary-container flex-shrink-0"></span>
+                <span className="text-sm text-on-surface-variant italic">No immediate issues detected...</span>
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -155,20 +149,28 @@ function LiveAnalysisSidebar({
             <h4 className="font-headline font-bold text-sm text-primary">AI Smart Suggestions</h4>
           </div>
           <div className="space-y-2">
-            {[
-              { label: 'Recommended', title: 'Remote Device Reset', desc: 'Initiate ONT power cycle via admin portal.', border: 'border-secondary' },
-              { label: 'Applicable', title: 'Late Fee Waiver', desc: 'Customer eligible for one-time courtesy waiver.', border: 'border-primary-container' },
-              { label: 'Diagnostic', title: 'Signal Level Check', desc: 'Pull 24hr RX/TX data from service node.', border: 'border-outline-variant' },
-            ].map(s => (
-              <div key={s.title} className={`p-3 rounded-xl bg-surface-container-low border-l-4 ${s.border} hover:translate-x-1 transition-transform cursor-pointer`}>
-                <div className="flex justify-between items-start mb-1">
-                  <span className="text-[9px] font-black text-secondary uppercase tracking-tighter">{s.label}</span>
-                  <span className="material-symbols-outlined text-[14px] text-on-surface-variant">open_in_new</span>
+            {(call.category === 'billing' ? [
+                { label: 'Recommended', title: 'Late Fee Waiver', desc: 'Customer may be eligible for a courtesy credit.', border: 'border-secondary' },
+                { label: 'Applicable', title: 'Plan Review', desc: 'Check for cheaper loyalty-based pricing models.', border: 'border-primary-container' },
+                { label: 'Action', title: 'Payment Verification', desc: 'Validate last transaction status in billing portal.', border: 'border-outline-variant' },
+              ] : call.category === 'technical' ? [
+                { label: 'Recommended', title: 'Remote Device Reset', desc: 'Initiate ONT power cycle via admin portal.', border: 'border-secondary' },
+                { label: 'Diagnostic', title: 'Signal Level Check', desc: 'Pull 24hr RX/TX data from service node.', border: 'border-primary-container' },
+                { label: 'Tool', title: 'Speed Test Injector', desc: 'Run synthetic load test to the customer ONT.', border: 'border-outline-variant' },
+              ] : [
+                { label: 'Recommended', title: 'Account Verification', desc: 'Confirm security pin before proceeding.', border: 'border-secondary' },
+                { label: 'Applicable', title: 'Loyalty Tagging', desc: 'Customer exceeds 5yr tenure; mark for loyalty.', border: 'border-primary-container' },
+                { label: 'Action', title: 'Email Follow-up', desc: 'Send summary of today\'s inquiry.', border: 'border-outline-variant' },
+              ]).map(s => (
+                <div key={s.title} className={`p-3 rounded-xl bg-surface-container-low border-l-4 ${s.border} hover:translate-x-1 transition-transform cursor-pointer`}>
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="text-[9px] font-black text-secondary uppercase tracking-tighter">{s.label}</span>
+                    <span className="material-symbols-outlined text-[14px] text-on-surface-variant">open_in_new</span>
+                  </div>
+                  <p className="text-sm font-bold text-primary">{s.title}</p>
+                  <p className="text-[11px] text-on-surface-variant leading-relaxed">{s.desc}</p>
                 </div>
-                <p className="text-sm font-bold text-primary">{s.title}</p>
-                <p className="text-[11px] text-on-surface-variant leading-relaxed">{s.desc}</p>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
 
@@ -177,10 +179,9 @@ function LiveAnalysisSidebar({
           <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-3">Customer Context</p>
           <div className="grid grid-cols-2 gap-2">
             {[
-              { label: 'Account ID', value: call.customerId },
               { label: 'Category', value: call.subCategory },
               { label: 'Priority', value: call.priority.toUpperCase() },
-              { label: 'Agent', value: call.agentName.split(' ')[0] },
+              { label: 'Agent', value: call.agentName === 'AI Agent' ? 'LCA AI' : call.agentName.split(' ')[0] },
             ].map(c => (
               <div key={c.label} className="bg-surface-container rounded-xl p-3 text-center">
                 <p className="text-[9px] text-on-surface-variant font-bold uppercase tracking-wider mb-1">{c.label}</p>
@@ -226,10 +227,7 @@ export default function ActiveCallsPage() {
         subtitle={`Monitoring ${activeCalls.length} ongoing connections in real-time${connected ? '' : ' · Connecting...'}`}
         rightContent={
           <div className="flex gap-2">
-            <button className="btn-secondary text-sm px-4 py-2">
-              <span className="material-symbols-outlined text-[18px]">download</span>
-              Export CSV
-            </button>
+
           </div>
         }
       />
@@ -319,7 +317,7 @@ export default function ActiveCallsPage() {
                         <span className="text-2xl" title={call.sentiment}>{sentimentEmoji[call.sentiment]}</span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`badge-${call.priority === 'critical' ? 'critical' : call.priority === 'high' || call.priority === 'medium' ? 'medium' : 'normal'}`}>
+                        <span className={call.priority === 'critical' ? 'badge-critical' : call.priority === 'high' || call.priority === 'medium' ? 'badge-medium' : 'badge-normal'}>
                           {call.priority}
                         </span>
                       </td>
@@ -328,6 +326,8 @@ export default function ActiveCallsPage() {
                           <span className="badge-medium">On Hold</span>
                         ) : call.isMuted ? (
                           <span className="badge-normal">Muted</span>
+                        ) : call.status === 'completed' ? (
+                          <span className="badge-ended">Ended</span>
                         ) : (
                           <span className="badge-success">Active</span>
                         )}

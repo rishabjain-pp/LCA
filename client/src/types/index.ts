@@ -12,6 +12,7 @@ export interface TranscriptLine {
   timestamp: string;
   sentiment: SentimentLevel;
   keywords?: string[];
+  issueDetected?: boolean;
 }
 
 export interface CallSummary {

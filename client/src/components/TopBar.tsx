@@ -31,11 +31,7 @@ export default function TopBar({ title, subtitle, rightContent }: TopBarProps) {
 
       {/* Right: Status + Actions + User */}
       <div className="flex items-center gap-5">
-        {/* System Status */}
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-tertiary/5 rounded-full">
-          <span className="w-2 h-2 rounded-full bg-on-tertiary-container live-dot"></span>
-          <span className="text-[10px] font-black text-on-tertiary-fixed-variant uppercase tracking-wider">Live Sync On</span>
-        </div>
+
 
         {rightContent}
 

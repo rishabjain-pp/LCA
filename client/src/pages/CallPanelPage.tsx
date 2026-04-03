@@ -234,10 +234,7 @@ export default function CallPanelPage() {
                   <span className="material-symbols-outlined text-primary-container text-[22px]">forum</span>
                   <h3 className="font-headline font-bold text-lg text-primary">Live Transcript</h3>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-on-tertiary-container live-dot"></span>
-                  <span className="text-[10px] font-black text-on-tertiary-fixed-variant uppercase tracking-widest">AI Verified · Live</span>
-                </div>
+
               </div>
 
               {/* Transcript Body */}

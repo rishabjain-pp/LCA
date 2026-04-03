@@ -25,7 +25,6 @@ export default function SideNav() {
           </div>
           <h1 className="text-lg font-bold tracking-tight text-primary font-headline">WowWay</h1>
         </div>
-        <p className="text-xs text-on-surface-variant font-medium tracking-widest uppercase ml-10">Command Horizon</p>
       </div>
 
       {/* Nav Items */}
@@ -52,18 +51,9 @@ export default function SideNav() {
 
       {/* Emergency + Footer */}
       <div className="px-3 space-y-1">
-        <button
-          onClick={() => navigate('/call-panel')}
-          className="w-full py-3 gradient-primary text-white rounded-full font-headline font-bold text-sm hover:shadow-lg hover:shadow-primary/30 transition-all flex items-center justify-center gap-2 mb-3"
-        >
-          <span className="material-symbols-outlined text-[18px]">warning</span>
-          Emergency Support
-        </button>
+
         <div className="border-t border-outline-variant/30 pt-3 space-y-1">
-          <button className="nav-item w-full text-left">
-            <span className="material-symbols-outlined text-[20px]">help</span>
-            <span>Help</span>
-          </button>
+
           <button
             onClick={() => navigate('/login')}
             className="nav-item w-full text-left text-error hover:text-error hover:bg-error-container/30"

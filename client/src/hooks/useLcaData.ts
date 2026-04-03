@@ -6,6 +6,8 @@ interface LcaCallInfo {
   streamSid: string;
   callerNumber: string;
   calledNumber: string;
+  customerName?: string;
+  customerNumber?: string;
   startTime: string;
   status: 'active' | 'ended';
 }
@@ -35,7 +37,13 @@ function adaptSentiment(s?: string): 'positive' | 'neutral' | 'negative' | 'frus
   return map[s] ?? 'neutral';
 }
 
+function extractNumber(sid: string, fallback: string): string {
+  const match = sid.match(/_\+?(\d{10,15})_/);
+  return match ? `+${match[1]}` : fallback;
+}
+
 function callInfoToActiveCall(call: LcaCallInfo): ActiveCall {
+  const num = extractNumber(call.callSid, call.customerNumber || call.callerNumber || 'External');
   return {
     id: call.callSid,
     callId: call.callSid.slice(0, 12),
@@ -46,8 +54,8 @@ function callInfoToActiveCall(call: LcaCallInfo): ActiveCall {
     subCategory: 'Account Management',
     agentName: 'AI Agent',
     agentId: 'ai1',
-    customerName: 'Caller',
-    customerNumber: call.callerNumber || 'Unknown',
+    customerName: call.customerName || 'Caller',
+    customerNumber: num,
     customerId: call.callSid.slice(0, 8),
     priority: 'normal',
     sentiment: 'neutral',
@@ -72,6 +80,7 @@ function segmentToTranscriptLine(seg: LcaTranscriptSegment): TranscriptLine {
     timestamp: `${Math.floor(seg.startTime / 60).toString().padStart(2, '0')}:${Math.floor(seg.startTime % 60).toString().padStart(2, '0')}`,
     sentiment: adaptSentiment(seg.sentiment),
     keywords: [],
+    issueDetected: seg.issueDetected,
   };
 }
 

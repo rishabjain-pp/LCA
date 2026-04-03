@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   ResponsiveContainer, PieChart, Pie, Cell, Tooltip,
 } from 'recharts';
@@ -33,8 +33,8 @@ function CallDetailModal({ call, onClose }: { call: CallSummary; onClose: () => 
               <span className="material-symbols-outlined text-white text-[20px]">call</span>
             </div>
             <div>
-              <h3 className="font-headline font-bold text-lg text-primary">{call.callId}</h3>
-              <p className="text-xs text-on-surface-variant">{call.startTime} · {call.duration} duration · {call.subCategory}</p>
+              <h3 className="font-headline font-bold text-lg text-primary">{call.customerName}</h3>
+              <p className="text-xs text-on-surface-variant">{call.customerNumber} · {call.duration} duration · {call.subCategory}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors">
@@ -117,7 +117,16 @@ function CallDetailModal({ call, onClose }: { call: CallSummary; onClose: () => 
                       <span className="text-[9px] text-outline">{line.timestamp}</span>
                       <span className={`text-[9px] font-bold capitalize ${SENTIMENT_COLOR[line.sentiment]}`}>{SENTIMENT_EMOJI[line.sentiment]}</span>
                     </div>
-                    <div className={line.speaker === 'agent' ? 'transcript-bubble-agent' : 'transcript-bubble-customer'}>{line.text}</div>
+                    <div className={line.speaker === 'agent' 
+                      ? 'max-w-[85%] p-3 bg-primary text-white rounded-tl-xl rounded-br-xl rounded-bl-xl text-xs leading-relaxed shadow-sm' 
+                      : `max-w-[85%] p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl text-xs leading-relaxed bg-surface-container-low text-on-surface border-l-[12px] ${
+                          line.issueDetected || line.sentiment === 'negative' || line.sentiment === 'frustrated'
+                            ? 'border-error/40 border-l-error shadow-[0_4px_15px_-5px_rgba(186,26,26,0.3)]'
+                            : line.sentiment === 'positive'
+                            ? 'border-tertiary-fixed/40 border-l-tertiary-fixed shadow-[0_4px_15px_-5px_rgba(78,190,66,0.3)]'
+                            : 'border-primary-container/30 border-l-primary-container shadow-[0_4px_15px_-5px_rgba(0,35,148,0.1)]'
+                        } border`
+                    }>{line.text}</div>
                   </div>
                 ))}
               </div>
@@ -221,7 +230,7 @@ function SubCategoryCallsModal({
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-sm font-mono text-on-surface-variant">{call.duration}</span>
                     <span className="text-lg">{SENTIMENT_EMOJI[call.sentiment]}</span>
-                    <span className={`badge-${call.priority === 'critical' ? 'critical' : call.priority === 'high' || call.priority === 'medium' ? 'medium' : 'normal'}`}>
+                    <span className={call.priority === 'critical' ? 'badge-critical' : call.priority === 'high' || call.priority === 'medium' ? 'badge-medium' : 'badge-normal'}>
                       {call.priority}
                     </span>
                   </div>
@@ -276,11 +285,11 @@ function SubMetricModal({ metric, calls, onClose }: { metric: DashboardMetric; c
                     </div>
                     <div>
                       <p className="text-sm font-bold text-primary">{call.customerName}</p>
-                      <p className="text-xs text-on-surface-variant">{call.subCategory} · {call.duration}</p>
+                      <p className="text-xs text-on-surface-variant">{call.customerNumber} · {call.duration}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`badge-${call.priority === 'critical' ? 'critical' : call.priority === 'high' || call.priority === 'medium' ? 'medium' : 'normal'}`}>{call.priority}</span>
+                    <span className={call.priority === 'critical' ? 'badge-critical' : call.priority === 'high' || call.priority === 'medium' ? 'badge-medium' : 'badge-normal'}>{call.priority}</span>
                     <span className="text-lg">{SENTIMENT_EMOJI[call.sentiment]}</span>
                   </div>
                 </div>
@@ -293,145 +302,48 @@ function SubMetricModal({ metric, calls, onClose }: { metric: DashboardMetric; c
   );
 }
 
-// ─── Sentiment Donut ─────────────────────────────────────────────────────────
-const SENTIMENT_DATA = [
-  { name: 'Positive', value: 48, color: '#4ebe42' },
-  { name: 'Neutral', value: 24, color: '#b4c5ff' },
-  { name: 'Negative', value: 16, color: '#ba1a1a' },
-  { name: 'Frustrated', value: 12, color: '#fe6b00' },
-];
-
 // ─── Interactive Category Explorer ────────────────────────────────────────────
-function CategoryExplorer({
-  onSubCategoryClick,
-}: {
+function CategoryExplorer({ 
+  categories,
+  onSubCategoryClick 
+}: { 
+  categories: CategoryData[];
   onSubCategoryClick: (cat: CategoryData, sub: SubCategoryData) => void;
 }) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const totalCalls = categoryTree.reduce((sum, c) => sum + c.totalCount, 0);
+  const [expandedCat, setExpandedCat] = useState<string>(categories[0]?.id || '');
 
   return (
-    <div className="xl:col-span-8 bg-surface-container-lowest rounded-2xl shadow-card overflow-hidden flex flex-col">
-      {/* Header */}
-      <div className="px-8 py-5 border-b border-surface-container">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-black text-primary font-headline">Call Categories</h2>
-            <p className="text-on-surface-variant text-sm mt-0.5">
-              {totalCalls.toLocaleString()} total contacts · Click a category to drill down, click count to view contacts
-            </p>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-container rounded-full">
-            <span className="w-2 h-2 rounded-full bg-on-tertiary-container live-dot"></span>
-            <span className="text-[10px] font-black text-on-tertiary-fixed-variant uppercase tracking-widest">Today</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Category Rows */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin divide-y divide-surface-container">
-        {categoryTree.map(cat => {
-          const isOpen = expandedId === cat.id;
-          const pct = Math.round((cat.totalCount / totalCalls) * 100);
-          const resolvedPct = Math.round((cat.resolved / cat.totalCount) * 100);
-
+    <div className="xl:col-span-8 bg-surface-container-lowest rounded-2xl p-8 shadow-card flex flex-col">
+      <h2 className="text-xl font-black text-primary font-headline mb-1">Issue Categories</h2>
+      <p className="text-on-surface-variant text-sm mb-6">Real-time taxonomy breakdown directly from Dashboard API</p>
+      
+      <div className="flex-1 space-y-4">
+        {categories.map(cat => {
+          const isOpen = expandedCat === cat.id;
           return (
-            <div key={cat.id}>
-              {/* Category Row */}
+            <div key={cat.id} className="border border-surface-container rounded-2xl overflow-hidden">
               <button
-                onClick={() => setExpandedId(isOpen ? null : cat.id)}
-                className="w-full px-8 py-5 flex items-center gap-4 hover:bg-surface-container-low transition-colors group text-left"
+                onClick={() => setExpandedCat(isOpen ? '' : cat.id)}
+                className="w-full px-6 py-4 flex items-center justify-between bg-surface-container-low hover:bg-surface-container transition-colors"
               >
-                {/* Icon */}
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all"
-                  style={{ backgroundColor: `${cat.bgColor}18` }}>
-                  <span className="material-symbols-outlined text-[22px]" style={{ color: cat.bgColor }}>{cat.icon}</span>
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined" style={{ color: cat.color }}>{cat.icon}</span>
+                  <span className="font-bold text-primary">{cat.name}</span>
                 </div>
-
-                {/* Name + bar */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-sm font-bold text-primary">{cat.name}</span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-bold text-on-tertiary-container">{resolvedPct}% resolved</span>
-                      <span className="text-[10px] font-bold text-on-surface-variant">{pct}% of total</span>
-                    </div>
-                  </div>
-                  {/* Progress bar — two-layer: resolved over total */}
-                  <div className="w-full h-2 bg-surface-container rounded-full overflow-hidden">
-                    <div className="h-full rounded-full relative" style={{ width: `${pct}%`, backgroundColor: `${cat.bgColor}30` }}>
-                      <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${resolvedPct}%`, backgroundColor: cat.bgColor }} />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Count badge */}
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <div className="text-right">
-                    <p className="text-2xl font-black font-headline" style={{ color: cat.bgColor }}>{cat.totalCount.toLocaleString()}</p>
-                    <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">contacts</p>
-                  </div>
-                  <span className="material-symbols-outlined text-on-surface-variant text-[20px] transition-transform duration-200"
-                    style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>
-                    chevron_right
-                  </span>
-                </div>
+                <span className="text-sm font-black text-primary">{cat.totalCount}</span>
               </button>
-
-              {/* Sub-category Drill-down */}
               {isOpen && (
-                <div className="bg-surface-container-low border-t border-surface-container animate-fade-in">
-                  {/* Sub-header */}
-                  <div className="px-8 py-3 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[14px] text-on-surface-variant">subdirectory_arrow_right</span>
-                    <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Sub-categories — click count to view contacts</span>
-                  </div>
-
-                  <div className="px-8 pb-5 space-y-2">
-                    {cat.subCategories.map(sub => {
-                      const subPct = Math.round((sub.count / cat.totalCount) * 100);
-                      const subResPct = Math.round((sub.resolved / sub.count) * 100);
-                      return (
-                        <div
-                          key={sub.id}
-                          className="flex items-center gap-4 px-5 py-3.5 bg-surface-container-lowest rounded-2xl hover:bg-white transition-colors"
-                        >
-                          {/* Sub icon */}
-                          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                            style={{ backgroundColor: `${cat.bgColor}12` }}>
-                            <span className="material-symbols-outlined text-[16px]" style={{ color: cat.bgColor }}>subdirectory_arrow_right</span>
-                          </div>
-
-                          {/* Name + bar */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-semibold text-on-surface">{sub.name}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] text-on-surface-variant">avg {sub.avgDuration}</span>
-                                <span className="text-[10px] font-bold text-on-tertiary-container">{subResPct}% resolved</span>
-                              </div>
-                            </div>
-                            <div className="w-full h-1.5 bg-surface-container rounded-full overflow-hidden">
-                              <div className="h-full rounded-full" style={{ width: `${subPct}%`, backgroundColor: `${cat.bgColor}50` }}>
-                                <div className="h-full rounded-full" style={{ width: `${subResPct}%`, backgroundColor: cat.bgColor }} />
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Count — clickable button */}
-                          <button
-                            onClick={() => onSubCategoryClick(cat, sub)}
-                            className="flex flex-col items-center px-4 py-2 rounded-xl hover:scale-105 active:scale-95 transition-all cursor-pointer flex-shrink-0 border-2"
-                            style={{ borderColor: `${cat.bgColor}30`, backgroundColor: `${cat.bgColor}08` }}
-                            title={`View ${sub.count} contacts in ${sub.name}`}
-                          >
-                            <span className="text-xl font-black font-headline" style={{ color: cat.bgColor }}>{sub.count}</span>
-                            <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: cat.bgColor }}>contacts ↗</span>
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
+                <div className="p-4 space-y-2">
+                  {cat.subCategories.map(sub => (
+                    <button
+                      key={sub.id}
+                      onClick={() => onSubCategoryClick(cat, sub)}
+                      className="w-full flex items-center justify-between px-4 py-2 rounded-lg hover:bg-surface-container text-sm"
+                    >
+                      <span className="text-on-surface-variant">{sub.name}</span>
+                      <span className="font-bold text-primary">{sub.count}</span>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -464,10 +376,14 @@ export default function DashboardPage() {
             const a = (c['analysis'] as Record<string, unknown>) || {};
             const dur = (c['duration'] as number) || 0;
             const rawTranscripts = (c['transcripts'] as Record<string, unknown>[]) || [];
+            const sid = (c['callSid'] as string) || (c['id'] as string) || '';
+            const match = sid.match(/_\+?(\d{10,15})_/);
+            const num = match ? `+${match[1]}` : (a['customerNumber'] as string) || (c['callerNumber'] as string) || 'External';
+
             return {
               id: c['id'] as string,
-              callId: ((c['callSid'] as string) || c['id'] as string).slice(0, 12),
-              callSid: c['callSid'] as string,
+              callId: sid.slice(0, 12),
+              callSid: sid,
               duration: `${Math.floor(dur / 60).toString().padStart(2, '0')}:${(dur % 60).toString().padStart(2, '0')}`,
               durationSeconds: dur,
               category: (a['category'] as CallSummary['category']) || 'support',
@@ -475,7 +391,7 @@ export default function DashboardPage() {
               agentName: (a['agentName'] as string) || 'AI Agent',
               agentId: 'ai1',
               customerName: (a['customerName'] as string) || 'Caller',
-              customerNumber: (a['customerNumber'] as string) || (c['callerNumber'] as string) || 'Unknown',
+              customerNumber: num,
               customerId: (a['customerId'] as string) || 'CUST-0000',
               priority: (a['priority'] as CallSummary['priority']) || 'normal',
               sentiment: sentimentMap[(a['sentiment'] as string) || ''] || 'neutral',
@@ -494,6 +410,7 @@ export default function DashboardPage() {
                   timestamp: `${Math.floor((t['startTime'] as number) / 60).toString().padStart(2, '0')}:${Math.floor((t['startTime'] as number) % 60).toString().padStart(2, '0')}`,
                   sentiment: sentimentMap[(t['sentiment'] as string) || ''] || 'neutral',
                   keywords: [] as string[],
+                  issueDetected: (t['issueDetected'] as boolean) || false,
                 })),
               aiSummary: (a['aiSummary'] as string) || '',
               tags: (a['tags'] as string[]) || [],
@@ -505,6 +422,83 @@ export default function DashboardPage() {
   }, [apiBase]);
 
   const callSummaries = realCalls.length > 0 ? realCalls : mockCallSummaries;
+
+  // 1. Dynamic Sentiment Data
+  const dynamicSentimentData: { name: string, value: number, color: string }[] = useMemo(() => {
+    const counts = { positive: 0, neutral: 0, negative: 0, frustrated: 0 };
+    callSummaries.forEach(call => {
+      const s = call.sentiment?.toLowerCase() || 'neutral';
+      if (s in counts) {
+        counts[s as keyof typeof counts]++;
+      } else {
+        counts.neutral++;
+      }
+    });
+    const total = callSummaries.length || 1;
+    return [
+      { name: 'Positive', value: Math.round((counts.positive / total) * 100) || 0, color: '#4ebe42' },
+      { name: 'Neutral', value: Math.round((counts.neutral / total) * 100) || 0, color: '#b4c5ff' },
+      { name: 'Negative', value: Math.round((counts.negative / total) * 100) || 0, color: '#ba1a1a' },
+      { name: 'Frustrated', value: Math.round((counts.frustrated / total) * 100) || 0, color: '#fe6b00' },
+    ];
+  }, [callSummaries]);
+
+  const positivePct = dynamicSentimentData.find(d => d.name === 'Positive')?.value || 0;
+
+  // 2. Dynamic Top Metrics
+  const dynamicMetrics = useMemo(() => {
+    let support = 0, billing = 0, technical = 0, churnRisk = 0;
+    let supportRes = 0, billingRes = 0, techRes = 0;
+    
+    callSummaries.forEach(c => {
+      if (c.category === 'support') { support++; if (c.status === 'completed') supportRes++; }
+      if (c.category === 'billing') { billing++; if (c.status === 'completed') billingRes++; }
+      if (c.category === 'technical') { technical++; if (c.status === 'completed') techRes++; }
+      if (c.sentiment === 'frustrated') churnRisk++;
+    });
+
+    return [
+      { id: 'm1', label: 'Support Queries', value: support, change: Math.round((supportRes / (support || 1)) * 100), changeDirection: 'up', category: 'support', icon: 'headset_mic', color: '#002265' },
+      { id: 'm2', label: 'Billing Disputes', value: billing, change: Math.round((billingRes / (billing || 1)) * 100), changeDirection: 'up', category: 'billing', icon: 'credit_card_off', color: '#fe6b00' },
+      { id: 'm3', label: 'Technical Issues', value: technical, change: Math.round((techRes / (technical || 1)) * 100), changeDirection: 'down', category: 'technical', icon: 'router', color: '#4ebe42' },
+      { id: 'm4', label: 'Churn Risk', value: churnRisk, change: 0, changeDirection: 'up', category: 'outbound', icon: 'person_cancel', color: '#a04100' },
+    ];
+  }, [callSummaries]);
+
+  // 3. Dynamic Category Explorer Tree
+  const dynamicCategoryTree = useMemo(() => {
+    const cats: Record<string, any> = {
+      support: { id: 'support', name: 'General Support', icon: 'headset_mic', color: '#002265', bgColor: '#dbe1ff', totalCount: 0, resolved: 0, subCategories: {} },
+      billing: { id: 'billing', name: 'Billing', icon: 'credit_card_off', color: '#fe6b00', bgColor: '#ffdbcc', totalCount: 0, resolved: 0, subCategories: {} },
+      technical: { id: 'technical', name: 'Technical', icon: 'router', color: '#002f01', bgColor: '#8afc77', totalCount: 0, resolved: 0, subCategories: {} }
+    };
+    
+    callSummaries.forEach(c => {
+      const catId = c.category in cats ? c.category : 'support';
+      const root = cats[catId];
+      root.totalCount++;
+      if (c.status === 'completed') root.resolved++;
+      
+      const subName = c.subCategory || 'General';
+      if (!root.subCategories[subName]) {
+        root.subCategories[subName] = { id: subName, name: subName, count: 0, resolved: 0, avgDuration: '00:00', totalSecs: 0, calls: [] };
+      }
+      
+      const sub = root.subCategories[subName];
+      sub.count++;
+      sub.calls.push(c);
+      sub.totalSecs += c.durationSeconds || 0;
+      if (c.status === 'completed') sub.resolved++;
+      
+      const avgSecs = Math.round(sub.totalSecs / sub.count);
+      sub.avgDuration = `${String(Math.floor(avgSecs / 60)).padStart(2, '0')}:${String(avgSecs % 60).padStart(2, '0')}`;
+    });
+
+    return Object.values(cats).map(c => ({
+      ...c,
+      subCategories: Object.values(c.subCategories).sort((a: any, b: any) => b.count - a.count)
+    }));
+  }, [callSummaries]);
 
   const metricBorderColors: Record<string, string> = {
     'm1': 'border-primary', 'm2': 'border-secondary-container',
@@ -523,21 +517,16 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <TopBar
-        title="The Command Horizon"
+        title="WowWay"
         subtitle="Call Center Intelligence Dashboard"
-        rightContent={
-          <button className="btn-primary text-sm">
-            <span className="material-symbols-outlined text-[18px]">download</span>
-            Export Report
-          </button>
-        }
+        rightContent={null}
       />
 
       <main className="p-8 space-y-6 flex-1">
 
         {/* ── Hero Metric Cards ── */}
         <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-          {dashboardMetrics.map(metric => (
+          {dynamicMetrics.map((metric: any) => (
             <button
               key={metric.id}
               onClick={() => setSelectedMetric(metric)}
@@ -568,7 +557,10 @@ export default function DashboardPage() {
 
         {/* ── Main Grid: Categories Explorer (8) + Sentiment (4) ── */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-          <CategoryExplorer onSubCategoryClick={handleSubCategoryClick} />
+          <CategoryExplorer 
+            categories={dynamicCategoryTree} 
+            onSubCategoryClick={handleSubCategoryClick} 
+          />
 
           {/* ── Sentiment Donut (4 cols) ── */}
           <div className="xl:col-span-4 bg-surface-container-lowest rounded-2xl p-8 shadow-card flex flex-col">
@@ -578,20 +570,20 @@ export default function DashboardPage() {
               <div className="relative">
                 <ResponsiveContainer width={200} height={200}>
                   <PieChart>
-                    <Pie data={SENTIMENT_DATA} cx="50%" cy="50%" innerRadius={60} outerRadius={85}
+                    <Pie data={dynamicSentimentData} cx="50%" cy="50%" innerRadius={60} outerRadius={85}
                       paddingAngle={3} dataKey="value" startAngle={90} endAngle={-270}>
-                      {SENTIMENT_DATA.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                      {dynamicSentimentData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                     </Pie>
                     <Tooltip formatter={(v) => [`${v}%`, '']} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <p className="text-4xl font-black text-primary font-headline">72%</p>
+                  <p className="text-4xl font-black text-primary font-headline">{positivePct}%</p>
                   <p className="text-[10px] font-black text-on-tertiary-container uppercase tracking-widest">Positive</p>
                 </div>
               </div>
               <div className="w-full space-y-3 mt-4">
-                {SENTIMENT_DATA.map(s => (
+                {dynamicSentimentData.map(s => (
                   <div key={s.name}>
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
@@ -657,7 +649,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-3 flex-shrink-0">
                   <span className="text-sm font-mono text-on-surface-variant">{call.duration}</span>
                   <span className="text-xl">{SENTIMENT_EMOJI[call.sentiment]}</span>
-                  <span className={`badge-${call.priority === 'critical' ? 'critical' : call.priority === 'high' || call.priority === 'medium' ? 'medium' : 'normal'}`}>{call.priority}</span>
+                  <span className={call.priority === 'critical' ? 'badge-critical' : call.priority === 'high' || call.priority === 'medium' ? 'badge-medium' : 'badge-normal'}>{call.priority}</span>
                 </div>
                 <span className="material-symbols-outlined text-outline opacity-0 group-hover:opacity-100 transition-opacity text-[18px]">chevron_right</span>
               </button>
